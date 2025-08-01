@@ -1,0 +1,25 @@
+job_id: media_processing_pipeline
+description: Convert video, extract audio, and generate thumbnail
+
+jobs:
+  convert_video:
+    command: "ffmpeg -i input.mp4 -vf scale=1280:720 output.mp4"
+    depends_on: []
+    outputs:
+      video: output.mp4
+
+  extract_audio:
+    command: "ffmpeg -i {{convert_video.video}} -vn -acodec copy audio.aac"
+    depends_on: [convert_video]
+    outputs:
+      audio: audio.aac
+
+  generate_thumbnail:
+    command: "ffmpeg -i {{convert_video.video}} -ss 00:00:05 -vframes 1 thumbnail.jpg"
+    depends_on: [convert_video]
+    outputs:
+      image: thumbnail.jpg
+
+  upload_results:
+    command: "node upload.js {{extract_audio.audio}} {{generate_thumbnail.image}}"
+    depends_on: [extract_audio, generate_thumbnail]
