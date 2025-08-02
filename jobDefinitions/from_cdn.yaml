@@ -1,0 +1,10 @@
+job_id: from_cdn
+description: Download a file from a CDN to a local path
+
+inputs:
+  file_url:
+    type: string
+
+outputs:
+  file_path:
+    type: string
