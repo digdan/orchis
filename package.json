@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "list": "node list.js",
-    "start": "node index.js test.yaml",
+    "start": "node index.js jobs/media_processing_pipeline.yaml",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
