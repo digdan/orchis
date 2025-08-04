@@ -1,6 +1,6 @@
 # Orchis
 
-![Orchis](https://img.favpng.com/2/11/25/orchids-violet-purple-clip-art-png-favpng-Lj5dUnAeCWwm5r9xG1XYyCYAp.jpg)
+![Orchis](https://img.favpng.com/2/11/25/orchids-violet-purple-clip-art-png-favpng-Lj5dUnAeCWwm5r9xG1XYyCYAp.jpg =200x)
 
 Using YAML to provide inputs/ouputs in customizable job pipelines
 
