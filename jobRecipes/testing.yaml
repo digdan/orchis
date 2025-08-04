@@ -1,0 +1,21 @@
+job_id: testing
+description: Perform tests
+
+jobs:
+  list_js:
+    command: "ls *.js"
+    depends_on: []
+    outputs:
+      checked: js
+
+  list_json:
+    command: "ls *.json"
+    depends_on: [list_js]
+    outputs:
+      checked: json
+
+  list_md:
+    command: "ls *.md"
+    depends_on: [list_js]
+    outputs:
+      checked: md

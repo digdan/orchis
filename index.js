@@ -1,6 +1,6 @@
 import yaml from 'js-yaml';
 import fs from 'fs';
-import Orchis from './Orchis.js';
+import orchis from './orchis.js';
 
 const loadYaml = () => {
     try {
@@ -13,12 +13,5 @@ const loadYaml = () => {
 
 const doc = loadYaml();
 
-const media_orchis = new Orchis(doc);
-let nextJobs = [];
-while (nextJobs = media_orchis.execute()) {
-        if (nextJobs.length) {
-            nextJobs = media_orchis.completed(nextJobs, media_orchis.outputs(nextJobs));
-        } else {
-            break;
-        }
-}
+const results = await orchis(doc);
+console.log('final results', results);
