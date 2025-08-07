@@ -6,12 +6,14 @@
   "type": "module",
   "scripts": {
     "start": "node index.js jobRecipes/testing.yaml",
+    "video": "node index.js jobRecipes/video_weave_1.yaml",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "js-yaml": "^4.1.0",
-    "mustache": "^4.2.0"
+    "mustache": "^4.2.0",
+    "prompt-sync": "^4.2.0"
   }
 }
