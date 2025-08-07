@@ -8,15 +8,13 @@ const orchis = (executionDoc, params = {}) => new Promise((resolve, reject) => {
     if (!executionDoc) return reject('No document loaded. Aborting.');
 
     const envalue = (input) => {
-        console.log('rrr', { ...params, ...registry });
         const subsubDoc = JSON.parse(mustache.render(JSON.stringify(executionDoc), { ...params, ...registry }));
-        console.log('ssd', input, registry, subsubDoc);
         if (subsubDoc.inputs[input].substr(0, 5) === "eval ") {
-            console.log('i', subsubDoc.inputs[input].substr(5));
-            const result = new Function(subsubDoc.inputs[input].substr(5))();
+            const subFunc = subsubDoc.inputs[input].substr(4);
+            const result = new Function(subFunc)();
             return result;
         } else {
-            return value;
+            return subsubDoc.inputs[input];
         }
     }
 
@@ -28,13 +26,12 @@ const orchis = (executionDoc, params = {}) => new Promise((resolve, reject) => {
     let openJobs = 0;
 
     // Require inputs    
-    const subDoc = executionDoc;
+    const subDoc = {...executionDoc};
     if (subDoc?.inputs) {
         //Prompt for any inputs that are missing        
         Object.keys(subDoc.inputs).forEach((input) => {
             subDoc.inputs = JSON.parse(mustache.render(JSON.stringify(executionDoc, registry))).inputs;
             if (!params[input]) {
-                console.log('okkk', typeof subDoc["inputs"][input]);
                 if (typeof subDoc["inputs"][input] === 'string') {
                     registry["inputs"][input] = envalue(input);
                 } else if (subDoc["inputs"][input]?.prompt) {
@@ -56,7 +53,8 @@ const orchis = (executionDoc, params = {}) => new Promise((resolve, reject) => {
         for (const [name, job] of readyJobs) {
             started.add(name);
             openJobs++;
-            const command = JSON.parse(mustache.render(JSON.stringify(executionDoc), { ...params, ...registry })).jobs[name].command;
+            const renderedDoc = JSON.parse(mustache.render(JSON.stringify(executionDoc), { ...params, ...registry}));
+            const command = renderedDoc.jobs[name].command;
             console.log(">", command);
             exec(command, async (error, stdout) => {
                 openJobs--;
