@@ -1,3 +1,5 @@
+import yaml from 'js-yaml';
+import fs from 'fs';
 import mustache from 'mustache';
 import { exec } from 'node:child_process';
 import prompt from 'prompt-sync';
