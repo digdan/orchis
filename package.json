@@ -3,7 +3,6 @@
   "version": "1.0.1",
   "description": "",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js jobRecipes/testing.yaml",
     "video": "node index.js jobRecipes/video_weave_1.yaml",
@@ -12,6 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bullmq": "^5.56.10",
+    "ioredis": "^5.7.0",
     "js-yaml": "^4.1.0",
     "mustache": "^4.2.0",
     "prompt-sync": "^4.2.0"

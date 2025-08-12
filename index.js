@@ -1,17 +1,14 @@
-import yaml from 'js-yaml';
-import fs from 'fs';
-import orchis from './orchis.js';
+// index.js
+const { startWorker } = require('./worker');
+const { loadWorkflow, runWorkflow } = require('./orchestrator');
 
-const loadYaml = () => {
-    try {
-        const doc = yaml.load(fs.readFileSync(process.argv[2], 'utf8'));
-        return doc;
-    } catch (e) {
-        console.error(e);
-    }
-}
+// Load and start workers
+const flow = loadWorkflow('./flows/example-flow.yaml');
+const uniqueTasks = new Set(Object.values(flow.jobs).map(j => j.task));
+uniqueTasks.forEach(startWorker);
 
-const doc = loadYaml();
-
-const results = await orchis(doc);
-console.log('final results', results);
+// Start orchestrating
+runWorkflow(flow).then(results => {
+  console.log('Workflow completed:', results);
+  process.exit(0);
+});

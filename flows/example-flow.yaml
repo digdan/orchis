@@ -1,0 +1,18 @@
+jobs:
+  jobA:
+    task: "jobA"
+    inputs:
+      param1: "static value"
+
+  jobB:
+    task: "jobB"
+    dependsOn: ["jobA"]
+    inputs:
+      fromJob: "jobA"
+
+  jobC:
+    task: "jobC"
+    dependsOn: ["jobA"]
+    inputs:
+      valueFromA: "${jobA.result}"
+      valueFromB: "${jobB.result.key}"
