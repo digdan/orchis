@@ -3,7 +3,7 @@ const { startWorker } = require('./worker');
 const { loadWorkflow, runWorkflow } = require('./orchestrator');
 
 // Load and start workers
-const flow = loadWorkflow('./flows/example-flow.yaml');
+const flow = loadWorkflow('./flows/weave1.yaml');
 const uniqueTasks = new Set(Object.values(flow.jobs).map(j => j.task));
 uniqueTasks.forEach(startWorker);
 

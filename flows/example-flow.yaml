@@ -6,7 +6,7 @@ jobs:
 
   jobB:
     task: "jobB"
-    dependsOn: ["jobA"]
+    dependsOn: ["jobC"]
     inputs:
       fromJob: "jobA"
 
@@ -15,4 +15,4 @@ jobs:
     dependsOn: ["jobA"]
     inputs:
       valueFromA: "${jobA.result}"
-      valueFromB: "${jobB.result.key}"
+      valueFromB: "${jobA.result.key}"

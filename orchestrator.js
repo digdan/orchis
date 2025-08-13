@@ -24,46 +24,60 @@ function loadWorkflow(filePath) {
 async function runWorkflow(flow) {
   const jobQueueMap = {};
   const queueEventsMap = {};
-
+  
+  // Initialize queues and queue events
   for (const [jobName, jobDef] of Object.entries(flow.jobs)) {
     const queue = new Queue(jobDef.task, { connection });
     const queueEvents = new QueueEvents(jobDef.task, { connection });
     await queueEvents.waitUntilReady(); // ✅ make sure it's ready
-
     jobQueueMap[jobName] = queue;
     queueEventsMap[jobName] = queueEvents;
   }
 
+  // Create job execution promises
+  const jobPromises = {};
   const pendingJobs = new Set(Object.keys(flow.jobs));
 
-  while (pendingJobs.size > 0) {
-    for (const jobName of Array.from(pendingJobs)) {
-      const jobDef = flow.jobs[jobName];
-      const deps = jobDef.dependsOn || [];
-
-      const depsSatisfied = deps.every(d => jobResults[d]);
-
-      if (depsSatisfied) {
-        const resolvedInputs = resolveInputs(jobDef.inputs, jobResults);
-        const queue = jobQueueMap[jobName];
-        const queueEvents = queueEventsMap[jobName];
-
-        const job = await queue.add(jobName, { inputs: resolvedInputs });
-
-        const completed = await job.waitUntilFinished(queueEvents); 
-        jobResults[jobName] = completed;
-
-        pendingJobs.delete(jobName);
-      }
+  // Function to execute a single job
+  async function executeJob(jobName) {
+    const jobDef = flow.jobs[jobName];
+    const deps = jobDef.dependsOn || [];
+    
+    // Wait for all dependencies to complete and ensure their results are available
+    if (deps.length > 0) {
+      await Promise.all(deps.map(dep => jobPromises[dep]));
     }
+    
+    // Resolve inputs after dependencies are complete and results are stored
+    const resolvedInputs = resolveInputs(jobDef.inputs, jobResults);
+    const queue = jobQueueMap[jobName];
+    const queueEvents = queueEventsMap[jobName];
+    
+    console.log("+", jobName);
+    const job = await queue.add(jobName, { inputs: resolvedInputs });
+    const completed = await job.waitUntilFinished(queueEvents);
+    console.log("-", jobName);
+    
+    // Store result immediately after completion
+    jobResults[jobName] = completed;
+    return completed;
   }
 
+  // Create promises for all jobs
+  for (const jobName of Object.keys(flow.jobs)) {
+    jobPromises[jobName] = executeJob(jobName);
+  }
+
+  // Wait for all jobs to complete
+  await Promise.all(Object.values(jobPromises));
+  
   return jobResults;
 }
 
+
 function resolveInputs(inputDef, results) {
   if (!inputDef) return {};
-
+  
   const resolved = {};
   for (const [key, val] of Object.entries(inputDef)) {
     if (typeof val === 'string' && val.startsWith('${')) {
@@ -73,6 +87,9 @@ function resolveInputs(inputDef, results) {
         const path = match[1].split('.');
         let output = results;
         for (const p of path) {
+          if (output === null || output === undefined) {
+            throw new Error(`Cannot resolve path "${match[1]}" - intermediate value is null/undefined at "${p}"`);
+          }
           output = output[p];
         }
         resolved[key] = output;
@@ -83,5 +100,6 @@ function resolveInputs(inputDef, results) {
   }
   return resolved;
 }
+
 
 module.exports = { loadWorkflow, runWorkflow };
