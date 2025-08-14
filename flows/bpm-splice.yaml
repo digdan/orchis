@@ -1,10 +1,12 @@
 # inputs:
 #   url - the url of the video to process
 #   bpm - the bpm to stretch and slice the video at
+#   segments - int of total segments to divide by
 outputs:
   segmentList: ${split.segmentList}
   downloadName: ${download.path.name}
   table: ${init.table}
+  name: ${download.path.name}
 jobs:
   init:
     task: "initVideoTable"

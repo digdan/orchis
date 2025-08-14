@@ -1,115 +1,443 @@
 // orchestrator.js
-const fs = require('fs');
+const fs = require('fs').promises;
 const yaml = require('js-yaml');
-const { Queue, QueueEvents, Job } = require('bullmq');
-const path = require('path');
+const { Queue, QueueEvents } = require('bullmq');
 const { EventEmitter } = require('stream');
 const connection = require('./redis');
 
-function loadWorkflow(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  const returnFlow = yaml.load(raw);
-  returnFlow.events = new EventEmitter();
-  return returnFlow;
+/**
+ * Custom error classes for better error handling
+ */
+class WorkflowError extends Error {
+  constructor(message, context = {}) {
+    super(message);
+    this.name = 'WorkflowError';
+    this.context = context;
+  }
 }
 
-async function runWorkflow(flow, inputs = {}) {
-  const jobQueueMap = {};
-  const queueEventsMap = {};
-  let jobResults = { inputs };
-
-  flow.events.emit('start', { flow, inputs });
-
-  // Initialize queues and queue events
-  for (const [jobName, jobDef] of Object.entries(flow.jobs)) {
-    const queue = new Queue(jobDef.task, { connection });
-    const queueEvents = new QueueEvents(jobDef.task, { connection });
-    await queueEvents.waitUntilReady(); // ✅ make sure it's ready
-    jobQueueMap[jobName] = queue;
-    queueEventsMap[jobName] = queueEvents;
+class JobExecutionError extends Error {
+  constructor(message, jobName, context = {}) {
+    super(message);
+    this.name = 'JobExecutionError';
+    this.jobName = jobName;
+    this.context = context;
   }
+}
 
-  // Create job execution promises
-  const jobPromises = {};
-  const pendingJobs = new Set(Object.keys(flow.jobs));
+class DependencyError extends Error {
+  constructor(message, path, context = {}) {
+    super(message);
+    this.name = 'DependencyError';
+    this.path = path;
+    this.context = context;
+  }
+}
 
-  // Function to execute a single job
-  async function executeJob(jobName) {
-    const jobDef = flow.jobs[jobName];
-    const deps = jobDef.dependsOn || [];
+/**
+ * Loads and validates a workflow from a YAML file
+ * @param {string} filePath - Path to the workflow YAML file
+ * @returns {Promise<Object>} The loaded workflow with event emitter
+ * @throws {WorkflowError} When file cannot be loaded or parsed
+ */
+const loadWorkflow = async (filePath) => {
+  try {
+    const fileContent = await fs.readFile(filePath, 'utf8');
+    const flow = yaml.load(fileContent);
 
-    // Wait for all dependencies to complete and ensure their results are available
-    if (deps.length > 0) {
-      await Promise.all(deps.map(dep => jobPromises[dep]));
+    if (!flow || typeof flow !== 'object') {
+      throw new WorkflowError('Invalid workflow format', { filePath });
     }
-    // Resolve inputs after dependencies are complete and results are stored    
-    const resolvedInputs = resolveInputs(jobDef.inputs, jobResults);
-    resolvedInputs['name'] = jobName;
-    resolvedInputs['task'] = flow.jobs[jobName].task;
-    const queue = jobQueueMap[jobName];
-    const queueEvents = queueEventsMap[jobName];
 
-    flow.events.emit('newJob', {
-      name: jobName,
-      inputs: resolvedInputs
-    })
+    if (!flow.jobs || typeof flow.jobs !== 'object') {
+      throw new WorkflowError('Workflow must contain jobs definition', { filePath });
+    }
 
-    const job = await queue.add(jobName, { inputs: resolvedInputs });
-    const completed = await job.waitUntilFinished(queueEvents);
+    // Validate job definitions
+    for (const [jobName, jobDef] of Object.entries(flow.jobs)) {
+      if (!jobDef.task) {
+        throw new WorkflowError(`Job "${jobName}" missing required task field`, { jobName });
+      }
+    }
 
-    flow.events.emit('completedJob', {
-      name: jobName,
-      results: completed
+    flow.events = new EventEmitter();
+    return flow;
+  } catch (error) {
+    if (error instanceof WorkflowError) throw error;
+
+    if (error.code === 'ENOENT') {
+      throw new WorkflowError(`Workflow file not found: ${filePath}`, { filePath });
+    }
+
+    throw new WorkflowError(`Failed to load workflow: ${error.message}`, {
+      filePath,
+      originalError: error.message
     });
-    // Store result immediately after completion
-    jobResults[jobName] = completed;
-    return completed;
   }
+};
+
+/**
+ * Executes a workflow with the given inputs
+ * @param {Object} flow - The workflow definition
+ * @param {Object} inputs - Initial inputs for the workflow
+ * @returns {Promise<Object>} Results from all jobs
+ * @throws {WorkflowError} When workflow execution fails
+ */
+const runWorkflow = async (flow, inputs = {}) => {
+  const startTime = Date.now();
+  let queues, queueEvents;
+
+  try {
+    const jobResults = { inputs };
+
+    flow.events.emit('start', { flow, inputs, timestamp: startTime });
+
+    // Initialize all queues concurrently
+    ({ queues, queueEvents } = await initializeQueues(flow));
+
+    // Create job execution promises for true parallelism
+    const jobPromises = createJobPromises(flow, jobResults, queues, queueEvents);
+
+    // Execute all jobs with proper error aggregation
+    await executeAllJobs(jobPromises, flow);
+
+    const endTime = Date.now();
+    flow.events.emit('end', {
+      results: jobResults,
+      duration: endTime - startTime,
+      timestamp: endTime
+    });
+
+    return jobResults;
+
+  } catch (error) {
+    const endTime = Date.now();
+    flow.events.emit('error', {
+      error,
+      duration: endTime - startTime,
+      timestamp: endTime
+    });
+    throw error;
+  } finally {
+    // Clean up resources
+    await cleanupQueues(queues, queueEvents);
+  }
+};
+
+/**
+ * Initializes all job queues concurrently
+ * @param {Object} flow - The workflow definition
+ * @returns {Promise<{queues: Object, queueEvents: Object}>} Initialized queues and events
+ */
+const initializeQueues = async (flow) => {
+  const queues = {};
+  const queueEvents = {};
+
+  const initPromises = Object.entries(flow.jobs).map(async ([jobName, jobDef]) => {
+    try {
+      queues[jobName] = new Queue(jobDef.task, { connection });
+      queueEvents[jobName] = new QueueEvents(jobDef.task, { connection });
+
+      // Wait for queue to be ready with timeout
+      await Promise.race([
+        queueEvents[jobName].waitUntilReady(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Queue initialization timeout')), 30000)
+        )
+      ]);
+
+    } catch (error) {
+      throw new WorkflowError(`Failed to initialize queue for job "${jobName}": ${error.message}`, {
+        jobName,
+        task: jobDef.task,
+        originalError: error.message
+      });
+    }
+  });
+
+  await Promise.all(initPromises);
+  return { queues, queueEvents };
+};
+
+/**
+ * Creates job execution promises with proper dependency handling
+ */
+const createJobPromises = (flow, jobResults, queues, queueEvents) => {
+  const jobPromises = {};
 
   // Create promises for all jobs
-  for (const jobName of Object.keys(flow.jobs)) {
-    jobPromises[jobName] = executeJob(jobName);
+  Object.keys(flow.jobs).forEach(jobName => {
+    jobPromises[jobName] = executeJobWhenReady(
+      jobName,
+      flow,
+      jobResults,
+      queues,
+      queueEvents,
+      jobPromises
+    );
+  });
+
+  return jobPromises;
+};
+
+/**
+ * Executes all jobs and handles errors appropriately
+ */
+const executeAllJobs = async (jobPromises, flow) => {
+  const results = await Promise.allSettled(Object.values(jobPromises));
+  const errors = results
+    .filter(result => result.status === 'rejected')
+    .map(result => result.reason);
+
+  if (errors.length > 0) {
+    const errorMessage = `${errors.length} job(s) failed`;
+    const aggregatedError = new WorkflowError(errorMessage, { errors });
+    throw aggregatedError;
   }
+};
 
-  // Wait for all jobs to complete
-  await Promise.all(Object.values(jobPromises));
+/**
+ * Executes a single job when its dependencies are ready
+ * @param {string} jobName - Name of the job to execute
+ * @param {Object} flow - The workflow definition
+ * @param {Object} jobResults - Shared results object
+ * @param {Object} queues - Job queues
+ * @param {Object} queueEvents - Queue event handlers
+ * @param {Object} allJobPromises - All job promises for dependency resolution
+ * @returns {Promise<any>} Job execution result
+ */
+const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvents, allJobPromises) => {
+  const jobStartTime = Date.now();
 
-  flow.events.emit('end', jobResults);
-  return jobResults;
-}
+  try {
+    const jobDef = flow.jobs[jobName];
+    const dependencies = jobDef.dependsOn || [];
 
-function resolveInputs(inputDef, results) {
-  if (inputDef === null || inputDef === undefined) return [];
+    flow.events.emit('jobStarted', {
+      name: jobName,
+      dependencies,
+      timestamp: jobStartTime
+    });
 
-  function resolveValue(val) {
-    if (typeof val === 'string' && val.startsWith('${')) {
-      const match = val.match(/^\${(.*)}$/);
-      if (match) {
-        const path = match[1].split('.');
-        let output = results;
-        for (const p of path) {
-          if (output === null || output === undefined) {
-            console.log("did", inputDef, results);
-            throw new Error(`Cannot resolve path "${match[1]}" - intermediate value is null/undefined at "${p}"`);
-          }
-          output = output[p];
-        }
-        return output;
-      }
-    } else if (Array.isArray(val)) {
-      return val.map(item => resolveValue(item));
-    } else if (typeof val === 'object' && val !== null) {
-      const resolvedObj = {};
-      for (const [k, v] of Object.entries(val)) {
-        resolvedObj[k] = resolveValue(v);
-      }
-      return resolvedObj;
+    // Wait for all dependencies with proper error handling
+    if (dependencies.length > 0) {
+      await waitForDependencies(dependencies, allJobPromises, jobName);
     }
-    return val;
+
+    // Resolve inputs with error context
+    const resolvedInputs = {
+      ...resolveInputs(jobDef.inputs, jobResults, jobName),
+      name: jobName,
+      task: jobDef.task
+    };
+
+    flow.events.emit('jobQueued', {
+      name: jobName,
+      inputs: resolvedInputs,
+      timestamp: Date.now()
+    });
+
+    // Execute job with timeout
+    const result = await executeJobWithTimeout(
+      jobName,
+      resolvedInputs,
+      queues[jobName],
+      queueEvents[jobName],
+      jobDef.timeout || 300000 // 5 minute default timeout
+    );
+
+    // Store result atomically
+    jobResults[jobName] = result;
+
+    const jobEndTime = Date.now();
+    flow.events.emit('jobCompleted', {
+      name: jobName,
+      results: result,
+      duration: jobEndTime - jobStartTime,
+      timestamp: jobEndTime
+    });
+
+    return result;
+
+  } catch (error) {
+    const jobEndTime = Date.now();
+    flow.events.emit('jobFailed', {
+      name: jobName,
+      error: error.message,
+      duration: jobEndTime - jobStartTime,
+      timestamp: jobEndTime
+    });
+
+    throw new JobExecutionError(
+      `Job "${jobName}" failed: ${error.message}`,
+      jobName,
+      { originalError: error.message }
+    );
   }
+};
+
+/**
+ * Waits for job dependencies with proper error handling
+ */
+const waitForDependencies = async (dependencies, allJobPromises, jobName) => {
+  try {
+    const dependencyPromises = dependencies.map(dep => {
+      if (!allJobPromises[dep]) {
+        throw new DependencyError(`Unknown dependency "${dep}" for job "${jobName}"`, dep);
+      }
+      return allJobPromises[dep];
+    });
+
+    await Promise.all(dependencyPromises);
+  } catch (error) {
+    if (error instanceof DependencyError) throw error;
+    throw new DependencyError(
+      `Dependencies failed for job "${jobName}": ${error.message}`,
+      jobName,
+      { originalError: error.message }
+    );
+  }
+};
+
+/**
+ * Executes a job with timeout protection
+ */
+const executeJobWithTimeout = async (jobName, inputs, queue, queueEvents, timeoutMs) => {
+  const job = await queue.add(jobName, { inputs });
+
+  return Promise.race([
+    job.waitUntilFinished(queueEvents),
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new JobExecutionError(`Job "${jobName}" timed out after ${timeoutMs}ms`, jobName)),
+        timeoutMs
+      )
+    )
+  ]);
+};
+
+/**
+ * Resolves input templates with enhanced error handling
+ * @param {any} inputDef - Input definition to resolve
+ * @param {Object} results - Available results for resolution
+ * @param {string} jobName - Current job name for error context
+ * @returns {any} Resolved inputs
+ */
+const resolveInputs = (inputDef, results, jobName) => {
+  if (!inputDef) return {};
+
+  const resolveValue = (val, path = '') => {
+    try {
+      if (typeof val === 'string' && val.startsWith('${')) {
+        return resolveStringTemplate(val, results, jobName, path);
+      }
+
+      if (Array.isArray(val)) {
+        return val.map((item, index) =>
+          resolveValue(item, `${path}[${index}]`)
+        );
+      }
+
+      if (typeof val === 'object' && val !== null) {
+        const resolved = {};
+        for (const [key, value] of Object.entries(val)) {
+          const currentPath = path ? `${path}.${key}` : key;
+          resolved[key] = resolveValue(value, currentPath);
+        }
+        return resolved;
+      }
+
+      return val;
+    } catch (error) {
+      throw new DependencyError(
+        `Failed to resolve input at path "${path}" for job "${jobName}": ${error.message}`,
+        path,
+        { jobName, originalError: error.message }
+      );
+    }
+  };
 
   return resolveValue(inputDef);
-}
+};
 
+/**
+ * Resolves string templates with better error messages
+ * @param {string} template - Template string to resolve
+ * @param {Object} results - Available results
+ * @param {string} jobName - Current job name for error context
+ * @param {string} inputPath - Path in input structure for error context
+ * @returns {any} Resolved value
+ */
+const resolveStringTemplate = (template, results, jobName, inputPath) => {
+  const match = template.match(/^\${(.*)}$/);
+  if (!match) return template;
 
-module.exports = { loadWorkflow, runWorkflow };
+  const pathSegments = match[1].split('.');
+  let value = results;
+  let traversedPath = '';
+
+  for (const segment of pathSegments) {
+    traversedPath = traversedPath ? `${traversedPath}.${segment}` : segment;
+
+    if (value === null || value === undefined) {
+      throw new DependencyError(
+        `Cannot resolve template "${template}" - value is null/undefined at "${traversedPath}"`,
+        traversedPath,
+        { jobName, inputPath, template }
+      );
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(value, segment)) {
+      throw new DependencyError(
+        `Cannot resolve template "${template}" - missing property "${segment}" at "${traversedPath}"`,
+        traversedPath,
+        { jobName, inputPath, template, availableKeys: Object.keys(value) }
+      );
+    }
+
+    value = value[segment];
+  }
+
+  return value;
+};
+
+/**
+ * Cleans up queue resources
+ */
+const cleanupQueues = async (queues = {}, queueEvents = {}) => {
+  const cleanupPromises = [];
+
+  // Close all queue events
+  Object.values(queueEvents).forEach(queueEvent => {
+    if (queueEvent && typeof queueEvent.close === 'function') {
+      cleanupPromises.push(
+        queueEvent.close().catch(err =>
+          console.warn('Failed to close queue event:', err.message)
+        )
+      );
+    }
+  });
+
+  // Close all queues
+  Object.values(queues).forEach(queue => {
+    if (queue && typeof queue.close === 'function') {
+      cleanupPromises.push(
+        queue.close().catch(err =>
+          console.warn('Failed to close queue:', err.message)
+        )
+      );
+    }
+  });
+
+  await Promise.allSettled(cleanupPromises);
+};
+
+module.exports = {
+  loadWorkflow,
+  runWorkflow,
+  resolveStringTemplate,
+  // Export error classes for external error handling
+  WorkflowError,
+  JobExecutionError,
+  DependencyError
+};
