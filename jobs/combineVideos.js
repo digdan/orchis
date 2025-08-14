@@ -1,6 +1,7 @@
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const MD5 = require('../libs/MD5')
 
 const run = (arguments) => {
     return new Promise((resolve, reject) => {
@@ -19,16 +20,20 @@ module.exports = async function combineVideos(inputs, events) {
             ...message
         });
     }
+
+    const fileContents = fs.readFileSync(inputs.listFile, 'utf8');
+    const filename = `${inputs.table}/c-${MD5(fileContents)}.mp4`
+
     let arguments = [
         '-f', 'concat',
         '-safe', '0',
         '-i', inputs.listFile,
         '-c', 'copy',
-        './table/combined.mp4'
+        filename
     ];
 
     await run(arguments);
     return {
-        merged: './table/combined.mp4'
+        merged: filename
     }
 }

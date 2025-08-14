@@ -6,8 +6,6 @@ const path = require('path');
 const { EventEmitter } = require('stream');
 const connection = require('./redis');
 
-const jobResults = {};
-
 function loadWorkflow(filePath) {
   const raw = fs.readFileSync(filePath, 'utf8');
   const returnFlow = yaml.load(raw);
@@ -15,11 +13,12 @@ function loadWorkflow(filePath) {
   return returnFlow;
 }
 
-async function runWorkflow(flow) {
+async function runWorkflow(flow, inputs = {}) {
   const jobQueueMap = {};
   const queueEventsMap = {};
+  let jobResults = { inputs };
 
-  flow.events.emit('start');
+  flow.events.emit('start', { flow, inputs });
 
   // Initialize queues and queue events
   for (const [jobName, jobDef] of Object.entries(flow.jobs)) {
@@ -43,16 +42,16 @@ async function runWorkflow(flow) {
     if (deps.length > 0) {
       await Promise.all(deps.map(dep => jobPromises[dep]));
     }
-
     // Resolve inputs after dependencies are complete and results are stored    
     const resolvedInputs = resolveInputs(jobDef.inputs, jobResults);
     resolvedInputs['name'] = jobName;
-    resolvedInputs['task'] = flow.jobs[jobName].taik;
+    resolvedInputs['task'] = flow.jobs[jobName].task;
     const queue = jobQueueMap[jobName];
     const queueEvents = queueEventsMap[jobName];
 
     flow.events.emit('newJob', {
-      name: jobName
+      name: jobName,
+      inputs: resolvedInputs
     })
 
     const job = await queue.add(jobName, { inputs: resolvedInputs });
@@ -90,6 +89,7 @@ function resolveInputs(inputDef, results) {
         let output = results;
         for (const p of path) {
           if (output === null || output === undefined) {
+            console.log("did", inputDef, results);
             throw new Error(`Cannot resolve path "${match[1]}" - intermediate value is null/undefined at "${p}"`);
           }
           output = output[p];

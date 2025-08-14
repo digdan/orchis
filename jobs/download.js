@@ -64,7 +64,7 @@ module.exports = async function download(inputs, events) {
   const contentType = cont['headers'].get('content-type');
   const pathParts = path.parse(inputs.url);
   const uid = MD5(pathParts.base);
-  const localFile = `${inputs.table}/${uid}${pathParts.ext}`;
+  const localFile = `${inputs.table}/d-${uid}${pathParts.ext}`;
   let needsDownloaded = false;
 
   if (!fs.existsSync(localFile)) {

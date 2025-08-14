@@ -1,0 +1,57 @@
+prompts:
+  bpm:    
+    type: int
+    label: BPM
+    default: 110
+  url_a:
+    type: string
+    label: First Video URL
+    default: https://interwebdev.b-cdn.net/708edcfc-05aa-44a0-b98b-39601f451553_result8a23031ad1942baf_chf3.mp4
+  url_b:
+    type: string
+    label: Second Video URL
+    default: https://interwebdev.b-cdn.net/a73417b9-0f91-494c-ae30-3b9e9c9b4db6_resultf5205f08514befa7_chf3.mp4
+
+jobs:
+  bpm_splice_a:
+    task: runFlow    
+    inputs:
+      flow: bpm-splice
+      url: ${inputs.url_a}
+      bpm: ${inputs.bpm}
+  bpm_splice_b:
+    task: runFlow    
+    inputs:
+      flow: bpm-splice
+      url: ${inputs.url_b}
+      bpm: ${inputs.bpm}
+  shuffle_ab:
+    task: shuffleX
+    dependsOn: [bpm_splice_a, bpm_splice_b]
+    inputs:
+      shuffleList:
+        - ${bpm_splice_a.segmentList}
+        - ${bpm_splice_b.segmentList}
+  write_list_ab:
+    task: writeList
+    dependsOn: [shuffle_ab]
+    inputs:
+      list: ${shuffle_ab.shuffled}
+  merge_ab:
+    task: combineVideos
+    dependsOn: [write_list_ab]
+    inputs:
+      listFile: ${write_list_ab.listFile}
+      table: ${bpm_splice_a.table}
+  clean_a:
+    task: cleanTable
+    dependsOn: [merge_ab]
+    inputs:
+      table: ${bpm_splice_a.table}
+      prefix: ${bpm_splice_a.name}
+  clean_b:
+    task: cleanTable
+    dependsOn: [merge_ab]
+    inputs:
+      table: ${bpm_splice_b.table}
+      prefix: ${bpm_splice_b.name}      
