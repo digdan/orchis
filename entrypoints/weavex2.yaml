@@ -1,5 +1,6 @@
+name: Weave x2
 prompts:
-  bpm:        
+  bpm:
     label: BPM
     default: 110
   divide:
@@ -57,3 +58,6 @@ jobs:
     inputs:
       table: ${bpm_splice_b.table}
       prefix: ${bpm_splice_b.name}      
+
+outputs:
+  file: ${merge_ab.merged}

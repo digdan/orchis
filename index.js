@@ -21,7 +21,7 @@ const main = async () => {
     console.log('🚀 Starting workflow orchestrator...\n');
 
     // Load workflow with error handling
-    flow = await loadWorkflow('./entrypoints/weavex2.yaml');
+    flow = await loadWorkflow(process.argv[2]);
     console.log(`✅ Loaded workflow: ${flow.name || 'Unnamed Workflow'}`);
 
     // Start workers for all
@@ -92,9 +92,9 @@ const startWorkers = async (flow, jobsDir) => {
  * @param {Object} flow - The workflow definition with events
  */
 const setupEventListeners = (flow) => {
-  // Workflow-level events
+  // Workflow-level events  
   flow.events.on('start', (data) => {
-    console.log('🏁 Workflow started');
+    console.log('🏁 Workflow started', data.flow?.name);
     console.log(`   └─ Inputs: ${Object.keys(data.inputs).length} parameter(s)`);
     console.log(`   └─ Jobs: ${Object.keys(data.flow.jobs).length} job(s)`);
     console.log(`   └─ Started at: ${new Date(data.timestamp).toISOString()}\n`);
@@ -204,10 +204,9 @@ const collectUserInputs = async (flow) => {
 
       // Apply type conversion if specified
       inputs[promptKey] = convertInputType(userInput, promptConfig.type);
-      console.log(`✅ Set ${promptKey}: ${inputs[promptKey]}`);
     }
 
-    console.log(`\n📊 Collected ${Object.keys(inputs).length} input(s)\n`);
+    console.log(`\n📊 Collected ${Object.keys(inputs).length} input(s)`);
 
   } catch (error) {
     throw new WorkflowError(`Failed to collect user inputs: ${error.message}`, {

@@ -12,7 +12,6 @@ function deleteFilesStartingWith(dirPath, prefix) {
 
                 if (stat.isFile()) {
                     fs.unlinkSync(filePath);
-                    console.log(`Deleted: ${file}`);
                 }
             }
         });

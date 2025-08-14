@@ -122,8 +122,13 @@ const runWorkflow = async (flow, inputs = {}, maxNestingLevel = 5) => {
       timestamp: endTime
     });
 
-    return jobResults;
-
+    if (flow?.outputs) {
+      const returnable = resolveInputs(flow.outputs, jobResults);
+      return resolveInputs(flow.outputs, jobResults);
+    } else {
+      console.log('NO OUTPUTS', flow.name, flow, flow?.outputs);
+      return jobResults;
+    }
   } catch (error) {
     const endTime = Date.now();
     flow.events.emit('error', {
@@ -385,7 +390,6 @@ const executeAllJobs = async (jobPromises, flow) => {
  */
 const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvents, allJobPromises) => {
   const jobStartTime = Date.now();
-
   try {
     const jobDef = flow.jobs[jobName];
     const dependencies = jobDef.dependsOn || [];

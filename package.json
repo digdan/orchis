@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "bullmq": "^5.56.10",
+    "dotenv": "^17.2.1",
     "ioredis": "^5.7.0",
     "js-yaml": "^4.1.0",
     "mime-types": "^3.0.1",

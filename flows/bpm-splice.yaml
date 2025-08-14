@@ -2,6 +2,7 @@
 #   url - the url of the video to process
 #   bpm - the bpm to stretch and slice the video at
 #   divide -
+name: BPM Splice
 jobs:
   init:
     task: "initVideoTable"
