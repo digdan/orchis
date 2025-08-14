@@ -34,6 +34,15 @@ class DependencyError extends Error {
   }
 }
 
+class NestedWorkflowError extends Error {
+  constructor(message, workflowPath, context = {}) {
+    super(message);
+    this.name = 'NestedWorkflowError';
+    this.workflowPath = workflowPath;
+    this.context = context;
+  }
+}
+
 /**
  * Loads and validates a workflow from a YAML file
  * @param {string} filePath - Path to the workflow YAML file
@@ -55,7 +64,12 @@ const loadWorkflow = async (filePath) => {
 
     // Validate job definitions
     for (const [jobName, jobDef] of Object.entries(flow.jobs)) {
-      if (!jobDef.task) {
+      if (jobDef.task === 'runWorkflow') {
+        // Special validation for runWorkflow jobs
+        if (!jobDef.workflowPath) {
+          throw new WorkflowError(`Job "runWorkflow" missing required workflowPath field`, { jobName });
+        }
+      } else if (!jobDef.task) {
         throw new WorkflowError(`Job "${jobName}" missing required task field`, { jobName });
       }
     }
@@ -80,23 +94,23 @@ const loadWorkflow = async (filePath) => {
  * Executes a workflow with the given inputs
  * @param {Object} flow - The workflow definition
  * @param {Object} inputs - Initial inputs for the workflow
+ * @param {number} maxNestingLevel - Maximum allowed nesting depth (default: 5)
  * @returns {Promise<Object>} Results from all jobs
  * @throws {WorkflowError} When workflow execution fails
  */
-const runWorkflow = async (flow, inputs = {}) => {
+const runWorkflow = async (flow, inputs = {}, maxNestingLevel = 5) => {
   const startTime = Date.now();
   let queues, queueEvents;
 
   try {
     const jobResults = { inputs };
-
     flow.events.emit('start', { flow, inputs, timestamp: startTime });
 
-    // Initialize all queues concurrently
+    // Initialize all queues concurrently (excluding runWorkflow jobs)
     ({ queues, queueEvents } = await initializeQueues(flow));
 
     // Create job execution promises for true parallelism
-    const jobPromises = createJobPromises(flow, jobResults, queues, queueEvents);
+    const jobPromises = createJobPromises(flow, jobResults, queues, queueEvents, maxNestingLevel);
 
     // Execute all jobs with proper error aggregation
     await executeAllJobs(jobPromises, flow);
@@ -125,7 +139,7 @@ const runWorkflow = async (flow, inputs = {}) => {
 };
 
 /**
- * Initializes all job queues concurrently
+ * Initializes all job queues concurrently (excluding runWorkflow jobs)
  * @param {Object} flow - The workflow definition
  * @returns {Promise<{queues: Object, queueEvents: Object}>} Initialized queues and events
  */
@@ -133,27 +147,29 @@ const initializeQueues = async (flow) => {
   const queues = {};
   const queueEvents = {};
 
-  const initPromises = Object.entries(flow.jobs).map(async ([jobName, jobDef]) => {
-    try {
-      queues[jobName] = new Queue(jobDef.task, { connection });
-      queueEvents[jobName] = new QueueEvents(jobDef.task, { connection });
+  const initPromises = Object.entries(flow.jobs)
+    .filter(([_, jobDef]) => jobDef.task !== 'runWorkflow') // Skip runWorkflow jobs
+    .map(async ([jobName, jobDef]) => {
+      try {
+        queues[jobName] = new Queue(jobDef.task, { connection });
+        queueEvents[jobName] = new QueueEvents(jobDef.task, { connection });
 
-      // Wait for queue to be ready with timeout
-      await Promise.race([
-        queueEvents[jobName].waitUntilReady(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Queue initialization timeout')), 30000)
-        )
-      ]);
+        // Wait for queue to be ready with timeout
+        await Promise.race([
+          queueEvents[jobName].waitUntilReady(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Queue initialization timeout')), 30000)
+          )
+        ]);
 
-    } catch (error) {
-      throw new WorkflowError(`Failed to initialize queue for job "${jobName}": ${error.message}`, {
-        jobName,
-        task: jobDef.task,
-        originalError: error.message
-      });
-    }
-  });
+      } catch (error) {
+        throw new WorkflowError(`Failed to initialize queue for job "${jobName}": ${error.message}`, {
+          jobName,
+          task: jobDef.task,
+          originalError: error.message
+        });
+      }
+    });
 
   await Promise.all(initPromises);
   return { queues, queueEvents };
@@ -162,22 +178,183 @@ const initializeQueues = async (flow) => {
 /**
  * Creates job execution promises with proper dependency handling
  */
-const createJobPromises = (flow, jobResults, queues, queueEvents) => {
+const createJobPromises = (flow, jobResults, queues, queueEvents, maxNestingLevel) => {
   const jobPromises = {};
 
   // Create promises for all jobs
   Object.keys(flow.jobs).forEach(jobName => {
-    jobPromises[jobName] = executeJobWhenReady(
-      jobName,
-      flow,
-      jobResults,
-      queues,
-      queueEvents,
-      jobPromises
-    );
+    if (flow.jobs[jobName].task === 'runWorkflow') {
+      jobPromises[jobName] = executeNestedWorkflow(
+        jobName,
+        flow,
+        jobResults,
+        jobPromises,
+        maxNestingLevel
+      );
+    } else {
+      jobPromises[jobName] = executeJobWhenReady(
+        jobName,
+        flow,
+        jobResults,
+        queues,
+        queueEvents,
+        jobPromises
+      );
+    }
   });
 
   return jobPromises;
+};
+
+/**
+ * Executes a nested workflow job
+ * @param {string} jobName - Name of the runWorkflow job
+ * @param {Object} flow - The parent workflow definition
+ * @param {Object} jobResults - Shared results object
+ * @param {Object} allJobPromises - All job promises for dependency resolution
+ * @param {number} maxNestingLevel - Maximum allowed nesting depth
+ * @returns {Promise<any>} Nested workflow execution result
+ */
+const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, maxNestingLevel) => {
+  const jobStartTime = Date.now();
+  try {
+    if (maxNestingLevel <= 0) {
+      throw new NestedWorkflowError(
+        `Maximum nesting depth exceeded for nested workflow "${jobName}"`,
+        jobName,
+        { maxNestingLevel }
+      );
+    }
+
+    const jobDef = flow.jobs[jobName];
+    const dependencies = jobDef.dependsOn || [];
+
+    flow.events.emit('jobStarted', {
+      name: jobName,
+      type: 'nestedWorkflow',
+      dependencies,
+      workflowPath: jobDef.workflowPath,
+      timestamp: jobStartTime
+    });
+
+    // Wait for all dependencies
+    if (dependencies.length > 0) {
+      await waitForDependencies(dependencies, allJobPromises, jobName);
+    }
+
+    // Resolve inputs for the nested workflow
+    const resolvedInputs = resolveInputs(jobDef.inputs, jobResults, jobName);
+
+    flow.events.emit('nestedWorkflowStarting', {
+      name: jobName,
+      workflowPath: jobDef.workflowPath,
+      inputs: resolvedInputs,
+      timestamp: Date.now()
+    });
+
+    // Load and execute the nested workflow
+    const nestedFlow = await loadWorkflow(jobDef.workflowPath);
+
+    // Forward parent events to nested workflow with prefixing
+    const eventForwarder = createEventForwarder(flow.events, jobName);
+    forwardNestedEvents(nestedFlow.events, eventForwarder);
+
+    // Execute nested workflow with reduced nesting level
+    const result = await runWorkflow(nestedFlow, resolvedInputs, maxNestingLevel - 1);
+
+    // Store result atomically
+    jobResults[jobName] = result;
+
+    const jobEndTime = Date.now();
+    flow.events.emit('jobCompleted', {
+      name: jobName,
+      type: 'nestedWorkflow',
+      results: result,
+      duration: jobEndTime - jobStartTime,
+      timestamp: jobEndTime
+    });
+
+    return result;
+
+  } catch (error) {
+    const jobEndTime = Date.now();
+    flow.events.emit('jobFailed', {
+      name: jobName,
+      type: 'nestedWorkflow',
+      error: error.message,
+      duration: jobEndTime - jobStartTime,
+      timestamp: jobEndTime
+    });
+
+    if (error instanceof NestedWorkflowError) throw error;
+
+    throw new NestedWorkflowError(
+      `Nested workflow "${jobName}" failed: ${error.message}`,
+      jobName,
+      { originalError: error.message }
+    );
+  }
+};
+
+/**
+ * Creates an event forwarder for nested workflow events
+ * @param {EventEmitter} parentEvents - Parent workflow event emitter
+ * @param {string} jobName - Name of the nested workflow job
+ * @returns {Object} Event forwarding functions
+ */
+const createEventForwarder = (parentEvents, jobName) => {
+  return {
+    start: (data) => parentEvents.emit('nestedWorkflowEvent', {
+      type: 'start',
+      nestedJobName: jobName,
+      data,
+      timestamp: Date.now()
+    }),
+    end: (data) => parentEvents.emit('nestedWorkflowEvent', {
+      type: 'end',
+      nestedJobName: jobName,
+      data,
+      timestamp: Date.now()
+    }),
+    jobStarted: (data) => parentEvents.emit('nestedWorkflowEvent', {
+      type: 'jobStarted',
+      nestedJobName: jobName,
+      data,
+      timestamp: Date.now()
+    }),
+    jobCompleted: (data) => parentEvents.emit('nestedWorkflowEvent', {
+      type: 'jobCompleted',
+      nestedJobName: jobName,
+      data,
+      timestamp: Date.now()
+    }),
+    jobFailed: (data) => parentEvents.emit('nestedWorkflowEvent', {
+      type: 'jobFailed',
+      nestedJobName: jobName,
+      data,
+      timestamp: Date.now()
+    }),
+    error: (data) => parentEvents.emit('nestedWorkflowEvent', {
+      type: 'error',
+      nestedJobName: jobName,
+      data,
+      timestamp: Date.now()
+    })
+  };
+};
+
+/**
+ * Forwards nested workflow events to parent workflow
+ * @param {EventEmitter} nestedEvents - Nested workflow event emitter
+ * @param {Object} forwarder - Event forwarding functions
+ */
+const forwardNestedEvents = (nestedEvents, forwarder) => {
+  nestedEvents.on('start', forwarder.start);
+  nestedEvents.on('end', forwarder.end);
+  nestedEvents.on('jobStarted', forwarder.jobStarted);
+  nestedEvents.on('jobCompleted', forwarder.jobCompleted);
+  nestedEvents.on('jobFailed', forwarder.jobFailed);
+  nestedEvents.on('error', forwarder.error);
 };
 
 /**
@@ -304,7 +481,6 @@ const waitForDependencies = async (dependencies, allJobPromises, jobName) => {
  */
 const executeJobWithTimeout = async (jobName, inputs, queue, queueEvents, timeoutMs) => {
   const job = await queue.add(jobName, { inputs });
-
   return Promise.race([
     job.waitUntilFinished(queueEvents),
     new Promise((_, reject) =>
@@ -439,5 +615,6 @@ module.exports = {
   // Export error classes for external error handling
   WorkflowError,
   JobExecutionError,
-  DependencyError
+  DependencyError,
+  NestedWorkflowError
 };

@@ -1,4 +1,4 @@
-function closestBeatDurationPowerOf4(bpm, durationSeconds) {
+function closestBeatDurationPowerOf4(bpm, durationSeconds, divide = 1) {
     if (bpm <= 0 || durationSeconds <= 0) {
         throw new Error("BPM and duration must be positive numbers.");
     }
@@ -21,8 +21,8 @@ function closestBeatDurationPowerOf4(bpm, durationSeconds) {
 
     return {
         closestDuration: snappedDuration,
-        beats: closestBeats,
-        beatLength: beatLength
+        segments: closestBeats * divide,
+        segmentLength: beatLength / divide
     };
 }
 
@@ -34,7 +34,7 @@ module.exports = async function snapBPM(inputs, events) {
             ...message
         });
     }
-    // given two inputs: BPM, and duration_ms -- find the best 4x beat BPM duration 
-    const result = closestBeatDurationPowerOf4(inputs.BPM, inputs.duration);
+    // given two inputs: BPM, and duration_ms -- find the best 4x beat BPM duration     
+    const result = closestBeatDurationPowerOf4(inputs.BPM, inputs.duration, inputs.divide);
     return result
 }

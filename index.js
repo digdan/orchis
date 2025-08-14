@@ -1,5 +1,7 @@
 // index.js
 const promptSync = require('prompt-sync')({ sigint: false });
+const fs = require('fs');
+const path = require('path');
 const { startWorker } = require('./worker');
 const {
   loadWorkflow,
@@ -22,8 +24,8 @@ const main = async () => {
     flow = await loadWorkflow('./entrypoints/weavex2.yaml');
     console.log(`✅ Loaded workflow: ${flow.name || 'Unnamed Workflow'}`);
 
-    // Start workers for all unique tasks
-    await startWorkers(flow);
+    // Start workers for all
+    await startWorkers(flow, './jobs');
 
     // Set up comprehensive event logging
     setupEventListeners(flow);
@@ -51,12 +53,18 @@ const main = async () => {
  * Starts workers for all unique tasks in the workflow
  * @param {Object} flow - The workflow definition
  */
-const startWorkers = async (flow) => {
+const startWorkers = async (flow, jobsDir) => {
   try {
-    const uniqueTasks = new Set(Object.values(flow.jobs).map(job => job.task));
+    let uniqueTasks = [];
+    const files = fs.readdirSync(jobsDir);
+    files.forEach(file => {
+      const parts = path.parse(file);
+      uniqueTasks.push(parts.name);
+    });
+
     console.log(`🔧 Starting ${uniqueTasks.size} worker(s) for tasks: ${Array.from(uniqueTasks).join(', ')}`);
 
-    const workerPromises = Array.from(uniqueTasks).map(async (task) => {
+    const workerPromises = Array.from(uniqueTasks).filter(task => task !== 'runWorkflow').map(async (task) => {
       try {
         await startWorker(task, flow.events);
         console.log(`✅ Worker started for task: ${task}`);

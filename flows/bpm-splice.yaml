@@ -1,12 +1,7 @@
 # inputs:
 #   url - the url of the video to process
 #   bpm - the bpm to stretch and slice the video at
-#   segments - int of total segments to divide by
-outputs:
-  segmentList: ${split.segmentList}
-  downloadName: ${download.path.name}
-  table: ${init.table}
-  name: ${download.path.name}
+#   divide -
 jobs:
   init:
     task: "initVideoTable"
@@ -26,7 +21,8 @@ jobs:
     dependsOn: [duration]
     inputs:
       BPM: ${inputs.bpm}
-      duration: ${duration.duration}  
+      duration: ${duration.duration}
+      divide: ${inputs.divide}
   stretch:
     task: "stretchVideo"
     dependsOn: [snap]
@@ -40,12 +36,18 @@ jobs:
     dependsOn: [snap]
     inputs:
       duration: ${snap.closestDuration}
-      segments: ${snap.beats}  
+      segments: ${snap.segments}  
   split:
     task: "splitVideoSegments"
     dependsOn: [segment_length, stretch]
     inputs:
       table: ${init.table}
       file: ${stretch.file}
-      segments: ${snap.beats}
+      segments: ${snap.segments}
       segmentDuration: ${segment_length.segmentDuration}
+
+outputs:
+  segmentList: ${split.segmentList}
+  downloadName: ${download.path.name}
+  table: ${init.table}
+  name: ${download.path.name}
