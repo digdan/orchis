@@ -1,5 +1,3 @@
-Here’s the raw markdown version of the decorative README I wrote for the Orchis project:
-
 # 🌸 Orchis – Complex Job Orchestration Template
 
 **Orchis** is a powerful, flexible, and customizable job orchestration template to jump-start your background task workflows.  
