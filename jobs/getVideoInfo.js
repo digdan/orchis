@@ -5,7 +5,7 @@ const getDuration = async (filePath) => {
         execFile(`${process.env['FFMPEG_PATH']}ffprobe`, [
             '-v', 'error',
             '-select_streams', 'v:0',
-            '-show_entries', 'stream=width,height,duration',
+            '-show_entries', 'stream=width,height,r_frame_rate,duration',
             '-of', 'csv=p=0:s=,',
             filePath
         ], (err, stdout) => {
@@ -28,9 +28,10 @@ module.exports = async function getVideoInfo(inputs, events) {
     const dataParts = csvData.split(",");
     return {
         file: inputs.file,
-        duration: dataParts[2],
-        duration_ms: (dataParts[0] * 1000),
+        duration: dataParts[3],
+        duration_ms: (dataParts[3] * 1000),
         width: dataParts[0],
-        height: dataParts[1]
+        height: dataParts[1],
+        rate: eval(dataParts[2])
     }
 }

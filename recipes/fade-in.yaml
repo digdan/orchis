@@ -27,7 +27,7 @@ jobs:
     inputs:
       file: ${download.filePath}  
   fade:
-    job: "fade"
+    job: "fadeSolid"
     dependsOn: [video_info]
     inputs:
       file: ${download.filePath}
@@ -36,6 +36,7 @@ jobs:
       height: ${video_info.height}
       width: ${video_info.width}
       duration: ${inputs.duration}
+      rate: ${video_info.rate}
       start: 0
 
 outputs:
