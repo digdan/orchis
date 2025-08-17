@@ -4,7 +4,7 @@ module.exports = async function writeList(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
             name: inputs.name,
-            task: inputs.task,
+            job: inputs.job,
             ...message
         });
     }

@@ -1,0 +1,42 @@
+name: Fade in w/ color
+description: Simple fade
+
+inputs:
+  url:
+    label: Video URL
+    default: https://interwebdev.b-cdn.net/708edcfc-05aa-44a0-b98b-39601f451553_result8a23031ad1942baf_chf3.mp4
+  color:    
+    label: Color to fade
+    default: black
+  duration:
+    label: Duration of fade in seconds
+    default: 1
+
+jobs:
+  init:
+    job: "initVideoTable"
+  download:
+    job: "download"
+    dependsOn: [init]
+    inputs:
+      url: ${inputs.url}
+      table: ${init.table}
+  video_info:
+    job: "getVideoInfo"
+    dependsOn: [download]
+    inputs:
+      file: ${download.filePath}  
+  fade:
+    job: "fade"
+    dependsOn: [video_info]
+    inputs:
+      file: ${download.filePath}
+      direction: in
+      color: ${inputs.color}
+      height: ${video_info.height}
+      width: ${video_info.width}
+      duration: ${inputs.duration}
+      start: 0
+
+outputs:
+  fadedFile: ${fade.file}  

@@ -5,41 +5,41 @@
 name: BPM Splice
 jobs:
   init:
-    task: "initVideoTable"
+    job: "initVideoTable"
   download:
-    task: "download"
+    job: "download"
     dependsOn: [init]
     inputs:
       url: ${inputs.url}
       table: ${init.table}
-  duration:
-    task: "videoDuration"
+  video_info:
+    job: "getVideoInfo"
     dependsOn: [download]
     inputs:
       file: ${download.filePath}  
   snap:
-    task: "snapBPM"
-    dependsOn: [duration]
+    job: "snapBPM"
+    dependsOn: [video_info]
     inputs:
       BPM: ${inputs.bpm}
-      duration: ${duration.duration}
+      duration: ${video_info.duration}
       divide: ${inputs.divide}
   stretch:
-    task: "stretchVideo"
+    job: "stretchVideo"
     dependsOn: [snap]
     inputs:
       table: ${init.table}
       file: ${download.filePath}
-      durationFrom: ${duration.duration}
+      durationFrom: ${video_info.duration}
       durationTo: ${snap.closestDuration}      
   segment_length:
-    task: "segmentsLength"
+    job: "segmentsLength"
     dependsOn: [snap]
     inputs:
       duration: ${snap.closestDuration}
       segments: ${snap.segments}  
   split:
-    task: "splitVideoSegments"
+    job: "splitVideoSegments"
     dependsOn: [segment_length, stretch]
     inputs:
       table: ${init.table}

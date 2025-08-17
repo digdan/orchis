@@ -1,8 +1,8 @@
 // index.js
+const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const promptSync = require('prompt-sync')({ sigint: false });
 const fs = require('fs');
-const path = require('path');
 const { startWorker } = require('./worker');
 const {
   loadWorkflow,
@@ -51,28 +51,28 @@ const main = async () => {
 };
 
 /**
- * Starts workers for all unique tasks in the workflow
+ * Starts workers for all unique jobs in the workflow
  * @param {Object} flow - The workflow definition
  */
 const startWorkers = async (flow, jobsDir) => {
   try {
-    let uniqueTasks = [];
+    let uniqueJobs = [];
     const files = fs.readdirSync(jobsDir);
     files.forEach(file => {
       const parts = path.parse(file);
-      uniqueTasks.push(parts.name);
+      uniqueJobs.push(parts.name);
     });
 
-    console.log(`🔧 Starting ${uniqueTasks.size} worker(s) for tasks: ${Array.from(uniqueTasks).join(', ')}`);
+    console.log(`🔧 Starting ${uniqueJobs.size} worker(s) for jobs: ${Array.from(uniqueJobs).join(', ')}`);
 
-    const workerPromises = Array.from(uniqueTasks).filter(task => task !== 'runWorkflow').map(async (task) => {
+    const workerPromises = Array.from(uniqueJobs).filter(job => job !== 'runWorkflow').map(async (job) => {
       try {
-        await startWorker(task, flow.events);
-        console.log(`✅ Worker started for task: ${task}`);
+        await startWorker(job, flow.events);
+        console.log(`✅ Worker started for job: ${job}`);
       } catch (error) {
-        console.error(`❌ Failed to start worker for task "${task}":`, error.message);
-        throw new WorkflowError(`Worker initialization failed for task: ${task}`, {
-          task,
+        console.error(`❌ Failed to start worker for job "${job}":`, error.message);
+        throw new WorkflowError(`Worker initialization failed for job: ${job}`, {
+          job,
           originalError: error.message
         });
       }
@@ -168,7 +168,7 @@ const collectUserInputs = async (flow) => {
   console.log('📝 Collecting user inputs...\n');
 
   try {
-    for (const [promptKey, promptConfig] of Object.entries(flow.prompts)) {
+    for (const [promptKey, promptConfig] of Object.entries(flow.inputs)) {
       if (!promptConfig || typeof promptConfig !== 'object') {
         inputs[promptKey] = promptConfig; // Static definition
         continue;

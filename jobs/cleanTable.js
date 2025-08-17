@@ -24,7 +24,7 @@ module.exports = async function cleanTable(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
             name: inputs.name,
-            task: inputs.task,
+            job: inputs.job,
             ...message
         });
     }

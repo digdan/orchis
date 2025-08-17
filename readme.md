@@ -1,6 +1,6 @@
 # 🌸 Orchis – Complex Job Orchestration Template
 
-**Orchis** is a powerful, flexible, and customizable job orchestration template to jump-start your background task workflows.  
+**Orchis** is a powerful, flexible, and customizable job orchestration template to jump-start your background job workflows.  
 Built with **JavaScript/Node.js**, it provides a structured foundation for defining, managing, and executing dependent jobs with ease.
 
 ---
@@ -45,10 +45,10 @@ With support for job definition, dependency handling, execution control, and orc
 
 - **recipes/**: Gather input, ordered sequences of flows with dependencies  
 - **flows/**: Define ordered sequences of jobs with dependencies  
-- **jobs/**: Encapsulate task logic—each job is self-contained  
+- **jobs/**: Encapsulate job logic—each job is self-contained  
 - **orchestrator.js**: Reads workflows, orchestrates job execution, handles retries/errors  
 - **worker.js**: Executes jobs, communicates with orchestrator, possibly via Redis  
-- **redis.js**: Manages task state, communication, or persistence via Redis  
+- **redis.js**: Manages job state, communication, or persistence via Redis  
 
 ---
 
@@ -85,7 +85,7 @@ With support for job definition, dependency handling, execution control, and orc
 
 ## 🛠 Usage
 
-Define your jobs under `jobs/`, e.g., `jobs/sendEmail.js`, exporting a function that performs a task.
+Define your jobs under `jobs/`, e.g., `jobs/sendEmail.js`, exporting a function that performs a job.
 Configure flows in `flows/`, indicating order, parallelism, retries:
 
 The orchestrator handles job dispatching and transitions.
@@ -107,13 +107,13 @@ The worker executes jobs and reports back.
 name: MySampleFlow
 jobs:
 	downloadFile:
-		task: fetchData
+		job: fetchData
 		dependsOn: []
 	processData:
-		task: analyzeData
+		job: analyzeData
 		dependsOn: [downloadFile]
 	sendEmail:
-		task: reportResults
+		job: reportResults
 		dependsOn: [processData]
 ```
 
@@ -160,7 +160,7 @@ Orchis can be customized via `.env`, possibly including:
 * Descriptive Naming: Job names should clearly describe their action
 * Idempotency: Design jobs to be safe if retried
 * Logging: Include context-rich logs (flow name, job ID, parameters)
-* Graceful Shutdowns: Ensure workers can exit cleanly, respecting ongoing tasks
+* Graceful Shutdowns: Ensure workers can exit cleanly, respecting ongoing jobs
 
 ---
 
@@ -198,6 +198,6 @@ This project is open source and available under the **MIT License**.
 
 * Orchis is a strong starting point for building sophisticated job orchestration systems
 * The modular structure encourages clarity and extensibility
-* Whether you’re chaining simple tasks or implementing complex workflows, this template can be tailored to your needs
+* Whether you’re chaining simple jobs or implementing complex workflows, this template can be tailored to your needs
 
 ```

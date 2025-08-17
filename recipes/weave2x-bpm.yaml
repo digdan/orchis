@@ -16,45 +16,45 @@ inputs:
 
 jobs:
   bpm_splice_a:
-    task: runWorkflow
+    job: runWorkflow
     workflowPath: ./flows/bpm-splice.yaml
     inputs:      
       url: ${inputs.url_a}
       bpm: ${inputs.bpm}
       divide: ${inputs.divide}
   bpm_splice_b:
-    task: runWorkflow
+    job: runWorkflow
     workflowPath: ./flows/bpm-splice.yaml
     inputs:
       url: ${inputs.url_b}
       bpm: ${inputs.bpm}
       divide: ${inputs.divide}
   shuffle_ab:
-    task: shuffleX
+    job: shuffleX
     dependsOn: [bpm_splice_a, bpm_splice_b]
     inputs:
       shuffleList:
         - ${bpm_splice_a.segmentList}
         - ${bpm_splice_b.segmentList}
   write_list_ab:
-    task: writeList
+    job: writeList
     dependsOn: [shuffle_ab]
     inputs:
       list: ${shuffle_ab.shuffled}
   merge_ab:
-    task: combineVideos
+    job: combineVideos
     dependsOn: [write_list_ab]
     inputs:
       listFile: ${write_list_ab.listFile}
       table: ${bpm_splice_a.table}
   clean_a:
-    task: cleanTable
+    job: cleanTable
     dependsOn: [merge_ab]
     inputs:
       table: ${bpm_splice_a.table}
       prefix: ${bpm_splice_a.name}
   clean_b:
-    task: cleanTable
+    job: cleanTable
     dependsOn: [merge_ab]
     inputs:
       table: ${bpm_splice_b.table}

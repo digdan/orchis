@@ -49,7 +49,7 @@ module.exports = async function download(inputs, events) {
   const send = (topic, message) => {
     events.emit(topic, {
       name: inputs.name,
-      task: inputs.task,
+      job: inputs.job,
       ...message
     });
   }

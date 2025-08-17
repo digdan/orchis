@@ -64,13 +64,13 @@ const loadWorkflow = async (filePath) => {
 
     // Validate job definitions
     for (const [jobName, jobDef] of Object.entries(flow.jobs)) {
-      if (jobDef.task === 'runWorkflow') {
+      if (jobDef.job === 'runWorkflow') {
         // Special validation for runWorkflow jobs
         if (!jobDef.workflowPath) {
           throw new WorkflowError(`Job "runWorkflow" missing required workflowPath field`, { jobName });
         }
-      } else if (!jobDef.task) {
-        throw new WorkflowError(`Job "${jobName}" missing required task field`, { jobName });
+      } else if (!jobDef.job) {
+        throw new WorkflowError(`Job "${jobName}" missing required job field`, { jobName });
       }
     }
 
@@ -153,11 +153,11 @@ const initializeQueues = async (flow) => {
   const queueEvents = {};
 
   const initPromises = Object.entries(flow.jobs)
-    .filter(([_, jobDef]) => jobDef.task !== 'runWorkflow') // Skip runWorkflow jobs
+    .filter(([_, jobDef]) => jobDef.job !== 'runWorkflow') // Skip runWorkflow jobs
     .map(async ([jobName, jobDef]) => {
       try {
-        queues[jobName] = new Queue(jobDef.task, { connection });
-        queueEvents[jobName] = new QueueEvents(jobDef.task, { connection });
+        queues[jobName] = new Queue(jobDef.job, { connection });
+        queueEvents[jobName] = new QueueEvents(jobDef.job, { connection });
 
         // Wait for queue to be ready with timeout
         await Promise.race([
@@ -170,7 +170,7 @@ const initializeQueues = async (flow) => {
       } catch (error) {
         throw new WorkflowError(`Failed to initialize queue for job "${jobName}": ${error.message}`, {
           jobName,
-          task: jobDef.task,
+          job: jobDef.job,
           originalError: error.message
         });
       }
@@ -188,7 +188,7 @@ const createJobPromises = (flow, jobResults, queues, queueEvents, maxNestingLeve
 
   // Create promises for all jobs
   Object.keys(flow.jobs).forEach(jobName => {
-    if (flow.jobs[jobName].task === 'runWorkflow') {
+    if (flow.jobs[jobName].job === 'runWorkflow') {
       jobPromises[jobName] = executeNestedWorkflow(
         jobName,
         flow,
@@ -409,7 +409,7 @@ const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvent
     const resolvedInputs = {
       ...resolveInputs(jobDef.inputs, jobResults, jobName),
       name: jobName,
-      task: jobDef.task
+      job: jobDef.job
     };
 
     flow.events.emit('jobQueued', {

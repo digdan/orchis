@@ -4,7 +4,7 @@ const path = require('path');
 
 const run = (arguments) => {
     return new Promise((resolve, reject) => {
-        execFile('/opt/homebrew/bin/ffmpeg', arguments, (err, stdout) => {
+        execFile(`${process.env['FFMPEG_PATH']}ffmpeg`, arguments, (err, stdout) => {
             if (err) return reject(err);
             resolve(true);
         });
@@ -15,7 +15,7 @@ module.exports = async function splitVideoSegments(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
             name: inputs.name,
-            task: inputs.task,
+            job: inputs.job,
             ...message
         });
     }
