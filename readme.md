@@ -105,7 +105,7 @@ The worker executes jobs and reports back.
 
 2. **Chain in a Flow**
 
-```yaml
+```
 name: MySampleFlow
 jobs:
 	downloadFile:
