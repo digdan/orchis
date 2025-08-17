@@ -1,4 +1,5 @@
 // index.js
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const promptSync = require('prompt-sync')({ sigint: false });
 const fs = require('fs');
 const path = require('path');

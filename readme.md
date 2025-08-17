@@ -78,9 +78,7 @@ With support for job definition, dependency handling, execution control, and orc
 4. **Run the orchestrator & worker**
 
    ```bash
-   node index.js
-   # or
-   npm start
+   node index.js recipes/my-sample-workflow.yaml
    ```
 
 ---
