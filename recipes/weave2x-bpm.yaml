@@ -1,5 +1,6 @@
 name: Weave x2
-prompts:
+description: Creates a single video from splicing 2 videos in at a specific BPM
+inputs:
   bpm:
     label: BPM
     default: 110

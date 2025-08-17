@@ -5,22 +5,6 @@ Built with **JavaScript/Node.js**, it provides a structured foundation for defin
 
 ---
 
-## 📚 Table of Contents
-
-- [Overview](#overview)  
-- [Features](#features)  
-- [Architecture](#architecture)  
-- [Getting Started](#getting-started)  
-- [Usage](#usage)  
-- [Example Workflow](#example-workflow)  
-- [Configuration](#configuration)  
-- [Customization & Extension](#customization--extension)  
-- [Best Practices](#best-practices)  
-- [Contributing](#contributing)  
-- [License](#license)  
-
----
-
 ## 🔍 Overview
 
 Orchis provides a boilerplate structure for building robust job orchestration systems.  
@@ -31,6 +15,7 @@ With support for job definition, dependency handling, execution control, and orc
 ## ✨ Features
 
 - Clean project structure with separate directories:
+  - `recipes/` for workflow entrypoint
   - `flows/` for workflow definitions  
   - `jobs/` for individual job implementations  
   - `libs/` for shared utilities and helpers  
@@ -44,6 +29,8 @@ With support for job definition, dependency handling, execution control, and orc
 
 ## 🏗 Architecture
 
+```
+├── recipes/        # Entrypoint for gather data and initiating top level workflows
 ├── flows/          # High-level orchestration definitions
 ├── jobs/           # Individual job handlers
 ├── libs/           # Shared libraries & helpers
@@ -54,6 +41,9 @@ With support for job definition, dependency handling, execution control, and orc
 ├── redis.js        # Redis connection/configuration
 └── package.json    # Project metadata & dependencies
 
+````
+
+- **recipes/**: Gather input, ordered sequences of flows with dependencies  
 - **flows/**: Define ordered sequences of jobs with dependencies  
 - **jobs/**: Encapsulate task logic—each job is self-contained  
 - **orchestrator.js**: Reads workflows, orchestrates job execution, handles retries/errors  
@@ -68,35 +58,39 @@ With support for job definition, dependency handling, execution control, and orc
    ```bash
    git clone https://github.com/digdan/orchis.git
    cd orchis
+	```
 
-	2.	Install dependencies
+2. **Install dependencies**
 
-npm install
+   ```bash
+   npm install
+   ```
 
+3. **Set up your environment**
 
-	3.	Set up your environment
-	•	Copy the example configuration:
+   * Copy the example configuration:
 
-cp .env-example .env
+     ```bash
+     cp .env-example .env
+     ```
+   * Customize `.env` with required variables (e.g., Redis connection, orchestration options).
 
+4. **Run the orchestrator & worker**
 
-	•	Customize .env with required variables (e.g., Redis connection, orchestration options).
+   ```bash
+   node index.js
+   # or
+   npm start
+   ```
 
-	4.	Run the orchestrator & worker
+---
 
-node index.js
-# or
-npm start
+## 🛠 Usage
 
+Define your jobs under `jobs/`, e.g., `jobs/sendEmail.js`, exporting a function that performs a task.
+Configure flows in `flows/`, indicating order, parallelism, retries:
 
-
-⸻
-
-🛠 Usage
-
-Define your jobs under jobs/, e.g., jobs/sendEmail.js, exporting a function that performs a task.
-Configure flows in flows/, indicating order, parallelism, retries:
-
+```json
 {
   "flowName": "MySampleFlow",
   "jobs": [
@@ -105,19 +99,24 @@ Configure flows in flows/, indicating order, parallelism, retries:
     { "id": "sendEmail", "next": [] }
   ]
 }
+```
 
 The orchestrator handles job dispatching and transitions.
 The worker executes jobs and reports back.
 
-⸻
+---
 
-📋 Example Workflow
-	1.	Define Jobs
-	•	jobs/fetchData.js
-	•	jobs/analyzeData.js
-	•	jobs/reportResults.js
-	2.	Chain in a Flow
+## 📋 Example Workflow
 
+1. **Define Jobs**
+
+   * `jobs/fetchData.js`
+   * `jobs/analyzeData.js`
+   * `jobs/reportResults.js`
+
+2. **Chain in a Flow**
+
+```json
 {
   "flowName": "DataPipeline",
   "jobs": [
@@ -126,70 +125,88 @@ The worker executes jobs and reports back.
     { "id": "reportResults", "next": [] }
   ]
 }
+```
 
+3. **Execution**
 
-	3.	Execution
+   ```bash
+   node index.js
+   ```
 
-node index.js
+   **Output:**
 
-Output:
+   ```
+   fetchData → analyzeData → reportResults
+   ```
 
-fetchData → analyzeData → reportResults
+---
 
+## ⚙ Configuration
 
+Orchis can be customized via `.env`, possibly including:
 
-⸻
+| Variable      | Description                   | Default     |
+| ------------- | ----------------------------- | ----------- |
+| `REDIS_URL`   | Redis connection string       | `redis://…` |
+| `MAX_RETRIES` | Retry count per job           | `3`         |
+| `LOG_LEVEL`   | Verbosity (e.g., info, debug) | `info`      |
 
-⚙ Configuration
+---
 
-Orchis can be customized via .env, possibly including:
+## 🔧 Customization & Extension
 
-Variable	Description	Default
-REDIS_URL	Redis connection string	redis://…
-MAX_RETRIES	Retry count per job	3
-LOG_LEVEL	Verbosity (e.g., info, debug)	info
+* **Failure Handling**: Add retry logic in job implementations or orchestrator
+* **Parallelism**: Extend orchestrator to support parallel branches
+* **Persistence**: Store workflow metadata, job results, or state for auditing
+* **Monitoring**: Integrate observability tools or dashboards for real-time tracking
+* **Scaling**: Run multiple workers across machines; use Redis for synchronized state
 
+---
 
-⸻
+## 💡 Best Practices
 
-🔧 Customization & Extension
-	•	Failure Handling: Add retry logic in job implementations or orchestrator
-	•	Parallelism: Extend orchestrator to support parallel branches
-	•	Persistence: Store workflow metadata, job results, or state for auditing
-	•	Monitoring: Integrate observability tools or dashboards for real-time tracking
-	•	Scaling: Run multiple workers across machines; use Redis for synchronized state
+* Keep Jobs Modular: One responsibility per job file
+* Descriptive Naming: Job names should clearly describe their action
+* Idempotency: Design jobs to be safe if retried
+* Logging: Include context-rich logs (flow name, job ID, parameters)
+* Graceful Shutdowns: Ensure workers can exit cleanly, respecting ongoing tasks
 
-⸻
+---
 
-💡 Best Practices
-	•	Keep Jobs Modular: One responsibility per job file
-	•	Descriptive Naming: Job names should clearly describe their action
-	•	Idempotency: Design jobs to be safe if retried
-	•	Logging: Include context-rich logs (flow name, job ID, parameters)
-	•	Graceful Shutdowns: Ensure workers can exit cleanly, respecting ongoing tasks
-
-⸻
-
-🤝 Contributing
+## 🤝 Contributing
 
 Contributions are welcome! To contribute:
-	1.	Fork the repo
-	2.	Create a feature branch (git checkout -b feature/my-feature)
-	3.	Commit your changes (git commit -m "Add X feature")
-	4.	Push (git push origin feature/my-feature)
-	5.	Open a Pull Request for review
 
-⸻
+1. Fork the repo
+2. Create a feature branch
 
-📜 License
+   ```bash
+   git checkout -b feature/my-feature
+   ```
+3. Commit your changes
 
-This project is open source and available under the MIT License.
+   ```bash
+   git commit -m "Add X feature"
+   ```
+4. Push to your branch
 
-⸻
+   ```bash
+   git push origin feature/my-feature
+   ```
+5. Open a Pull Request for review
 
-🌟 Wrapping Up
-	•	Orchis is a strong starting point for building sophisticated job orchestration systems
-	•	The modular structure encourages clarity and extensibility
-	•	Whether you’re chaining simple tasks or implementing complex workflows, this template can be tailored to your needs
+---
 
-Do you want me to also add **badges** (npm version, license, last commit, etc.) at the top so the README looks even more professional? That would make it pop visually on GitHub.
+## 📜 License
+
+This project is open source and available under the **MIT License**.
+
+---
+
+## 🌟 Wrapping Up
+
+* Orchis is a strong starting point for building sophisticated job orchestration systems
+* The modular structure encourages clarity and extensibility
+* Whether you’re chaining simple tasks or implementing complex workflows, this template can be tailored to your needs
+
+```

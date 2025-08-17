@@ -159,8 +159,8 @@ const setupEventListeners = (flow) => {
 const collectUserInputs = async (flow) => {
   const inputs = {};
 
-  if (!flow.prompts || Object.keys(flow.prompts).length === 0) {
-    console.log('ℹ️  No prompts defined, using empty inputs\n');
+  if (!flow.inputs || Object.keys(flow.inputs).length === 0) {
+    console.log('ℹ️  No inputs defined, using empty inputs\n');
     return inputs;
   }
 
@@ -169,7 +169,7 @@ const collectUserInputs = async (flow) => {
   try {
     for (const [promptKey, promptConfig] of Object.entries(flow.prompts)) {
       if (!promptConfig || typeof promptConfig !== 'object') {
-        console.warn(`⚠️  Invalid prompt configuration for "${promptKey}", skipping`);
+        inputs[promptKey] = promptConfig; // Static definition
         continue;
       }
 
