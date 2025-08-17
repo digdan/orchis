@@ -90,17 +90,6 @@ With support for job definition, dependency handling, execution control, and orc
 Define your jobs under `jobs/`, e.g., `jobs/sendEmail.js`, exporting a function that performs a task.
 Configure flows in `flows/`, indicating order, parallelism, retries:
 
-```json
-{
-  "flowName": "MySampleFlow",
-  "jobs": [
-    { "id": "downloadFile", "next": ["processData"] },
-    { "id": "processData", "next": ["sendEmail"] },
-    { "id": "sendEmail", "next": [] }
-  ]
-}
-```
-
 The orchestrator handles job dispatching and transitions.
 The worker executes jobs and reports back.
 
@@ -116,16 +105,20 @@ The worker executes jobs and reports back.
 
 2. **Chain in a Flow**
 
-```json
-{
-  "flowName": "DataPipeline",
-  "jobs": [
-    { "id": "fetchData", "next": ["analyzeData"] },
-    { "id": "analyzeData", "next": ["reportResults"] },
-    { "id": "reportResults", "next": [] }
-  ]
-}
+```yaml
+name: MySampleFlow
+jobs:
+	downloadFile:
+		task: fetchData
+		dependsOn: []
+	processData:
+		task: analyzeData
+		dependsOn: [downloadFile]
+	sendEmail:
+		task: reportResults
+		dependsOn: [processData]
 ```
+
 
 3. **Execution**
 
