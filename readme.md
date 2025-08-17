@@ -120,15 +120,48 @@ jobs:
 
 3. **Execution**
 
-   ```bash
-   node index.js
-   ```
+```bash
+node index.js recipes/my-sample-flow.yaml
+```
 
-   **Output:**
+**Output:**
 
-   ```
-   fetchData → analyzeData → reportResults
-   ```
+```
+fetchData → analyzeData → reportResults
+```
+
+4. **Inputs & Outputs**
+
+Job can accept inputs, and can also return results as outputs. Flows can have custom outputs defined for when the flow is ran as a job.
+
+```
+   name: MySampleFlow
+   inputs:
+      url:
+         label: URL for file to download
+         required: true
+   jobs:
+      downloadFile:
+         job: fetchData
+         dependsOn: []
+         inputs:
+            url: ${inputs.url}
+      processData:
+         job: analyzeData
+         dependsOn: [downloadFile]
+         inputs:
+            file: ${downloadFile.file}
+      sendEmail:
+         job: reportResults
+         dependsOn: [processData]
+         inputs:
+            email: coworker@myjob.com
+            results: ${processData.report}
+   ouputs:
+      completed: true
+      file: ${downloadedFile.file}
+```   
+
 
 ---
 
