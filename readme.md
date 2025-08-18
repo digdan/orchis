@@ -302,7 +302,7 @@ Split a video file by a certain number and duration of segments
       * segmentFiles - An array of the local files that video was split into
 
 ---      
-**stretchVideo**
+**stretchVideoDuration**
 
 Copy a video with a new duration, speeding up or slowing down the duration of the video.
 * inputs

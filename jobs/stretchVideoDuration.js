@@ -18,7 +18,7 @@ const run = (arguments) => {
  * @param {*} events 
  * @returns {file, points}
  */
-module.exports = async function stretchVideo(inputs, events) {
+module.exports = async function stretchVideoDuration(inputs, events) {
   const send = (topic, message) => {
     events.emit(topic, {
       name: inputs.name,
