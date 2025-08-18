@@ -210,7 +210,7 @@ Evaluates javascript code and returns the result
    * result - the result of the evaluated code
 
 ---
-**fade**
+**fadeVideos**
 
 Crossfade from one video to another
 * inputs
@@ -238,6 +238,15 @@ Gathers information about a video
    * rate - frame rate of video
 
 ---
+**imageListVideo**
+
+Combine a list of images into a video
+* inputs
+   * listFile - file of paths to the images, defined by `writeTextList`
+* outputs
+   * file - The generated video
+
+---
 **initVideoTable**
 
 creates and cleans a subdirectory for working on files
@@ -254,6 +263,19 @@ Convert a 2d array into a 1d interleaved array
    * arrays - a 2d array
 * outputs
    * interleaved - a 1d array
+
+--
+**overlayVideos**
+
+Overlay one video over another
+* inputs
+   * file_a - First video
+   * file_b - Second video
+   * top - the top offset in pixels
+   * left - the left offset in pixels
+   * alpha - the amount of transparency between 0 and 1
+* outputs
+   * file - The output video file
 
 ---
 **snapBPM**

@@ -37,7 +37,7 @@ coverleft	coverright	coverup	coverdown
 revealleft	revealright	revealup	revealdown
 */
 
-module.exports = async function fade(inputs, events) {
+module.exports = async function fadeVideos(inputs, events) {
   const send = (topic, message) => {
     events.emit(topic, {
       name: inputs.name,

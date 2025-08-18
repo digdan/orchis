@@ -45,7 +45,7 @@ jobs:
     inputs:
       code: ${video_info.duration} - ${inputs.duration}      
   fade:
-    job: "fade"
+    job: "fadeVideos"
     dependsOn: [solidVideo]
     inputs:
       file_a: ${solidVideo.file}
