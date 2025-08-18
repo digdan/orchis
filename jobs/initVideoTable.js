@@ -3,7 +3,7 @@ const path = require('path');
 
 var me = path.parse(__filename.split(__dirname + "/").pop()).name;
 
-const TABLE_DIR = "./table";
+const TABLE_DIR_DEFAULT = "./table";
 
 async function deleteOldFiles(dirPath) {
   const now = Date.now();
@@ -24,18 +24,24 @@ async function deleteOldFiles(dirPath) {
   }
 }
 
+/**
+ * 
+ * @param {*} inputs 
+ * @returns 
+ */
 module.exports = async function initVideoTable(inputs) {
+  const tableDir = inputs.path || TABLE_DIR_DEFAULT;
   // Ensure there is a "table" for us to work in
   try {
-    if (await fs.stat(TABLE_DIR)) {
-      await deleteOldFiles(TABLE_DIR);
+    if (await fs.stat(tableDir)) {
+      await deleteOldFiles(tableDir);
     } else {
       // Clean off old files
-      deleteOldFiles(TABLE_DIR);
+      deleteOldFiles(tableDir);
     }
   } catch (e) {
-    await fs.mkdir(TABLE_DIR);
+    await fs.mkdir(tableDir);
   }
 
-  return { table: TABLE_DIR };
+  return { table: tableDir };
 };

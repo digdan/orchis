@@ -1,8 +1,8 @@
-# inputs:
-#   url - the url of the video to process
-#   bpm - the bpm to stretch and slice the video at
-#   divide -
 name: BPM Splice
+inputs:
+  url: ''
+  bpm: 120
+  divide: 1
 jobs:
   init:
     job: "initVideoTable"

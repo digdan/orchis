@@ -40,12 +40,10 @@ jobs:
       duration: ${inputs.duration}
       rate: ${video_info.rate}
   findEnding:
-    job: "math"
+    job: "eval"
     dependsOn: [video_info]
     inputs:
-      value_a: ${video_info.duration}
-      value_b: ${inputs.duration}
-      operator: subtract
+      code: ${video_info.duration} - ${inputs.duration}      
   fade:
     job: "fade"
     dependsOn: [solidVideo]

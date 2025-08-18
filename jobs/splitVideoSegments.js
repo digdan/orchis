@@ -11,6 +11,12 @@ const run = (arguments) => {
     });
 }
 
+/**
+ * 
+ * @param {file, segmentDuration} inputs 
+ * @param {*} events 
+ * @returns { segmentFiles }
+ */
 module.exports = async function splitVideoSegments(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
@@ -21,7 +27,7 @@ module.exports = async function splitVideoSegments(inputs, events) {
     }
 
     const fileParts = path.parse(inputs.file);
-    let segmentList = [];
+    let segmentFiles = [];
 
     for (let i = 1; i <= inputs.segments; i++) {
         const newFilename = `${fileParts.dir}/${fileParts.name}-s${i}${fileParts.ext}`;
@@ -34,10 +40,10 @@ module.exports = async function splitVideoSegments(inputs, events) {
             '-preset', 'veryfast',
             newFilename
         ];
-        segmentList.push(newFilename);
+        segmentFiles.push(newFilename);
         await run(arguments);
     }
     return {
-        segmentList
+        segmentFiles
     }
 }

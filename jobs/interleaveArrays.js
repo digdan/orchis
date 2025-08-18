@@ -13,7 +13,13 @@ function interleaveArrays(arrays) {
     return result;
 }
 
-module.exports = async function shuffleX(inputs, events) {
+/**
+ * 
+ * @param { arrays } inputs 
+ * @param {*} events 
+ * @returns { interleaved }
+ */
+module.exports = async function interleaveArrays(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
             name: inputs.name,
@@ -22,8 +28,19 @@ module.exports = async function shuffleX(inputs, events) {
         });
     }
 
-    const shuffled = interleaveArrays(inputs.shuffleList)
+
+    const interleaved = [];
+    const maxLength = Math.max(...inputs.arrays.map(a => a.length));
+
+    for (let i = 0; i < maxLength; i++) {
+        for (const arr of arrays) {
+            if (i < arr.length) {
+                interleaved.push(arr[i]);
+            }
+        }
+    }
+
     return {
-        shuffled
+        interleaved
     }
 }

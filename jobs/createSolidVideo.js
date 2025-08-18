@@ -12,6 +12,13 @@ const run = (arguments) => {
   });
 }
 
+/**
+ * 
+ * @param { color, width, height, duration, rate, table} inputs 
+ * @param {*} events 
+ * @returns { file }
+ */
+
 module.exports = async function createSolidVideo(inputs, events) {
   const send = (topic, message) => {
     events.emit(topic, {

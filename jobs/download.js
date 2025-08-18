@@ -44,7 +44,12 @@ async function downloadWithProgress(url, outputPath, onProgress) {
   }
 }
 
-
+/**
+ * 
+ * @param {url} inputs 
+ * @param {*} events 
+ * @returns {file, path, mime, size}
+ */
 module.exports = async function download(inputs, events) {
   const send = (topic, message) => {
     events.emit(topic, {

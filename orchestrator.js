@@ -497,7 +497,7 @@ const executeJobWithTimeout = async (jobName, inputs, queue, queueEvents, timeou
 };
 
 /**
- * Resolves input templates with enhanced error handling
+ * Resolves input templates with enhanced error handling and multi-variable support
  * @param {any} inputDef - Input definition to resolve
  * @param {Object} results - Available results for resolution
  * @param {string} jobName - Current job name for error context
@@ -508,7 +508,7 @@ const resolveInputs = (inputDef, results, jobName) => {
 
   const resolveValue = (val, path = '') => {
     try {
-      if (typeof val === 'string' && val.startsWith('${')) {
+      if (typeof val === 'string') {
         return resolveStringTemplate(val, results, jobName, path);
       }
 
@@ -541,18 +541,76 @@ const resolveInputs = (inputDef, results, jobName) => {
 };
 
 /**
- * Resolves string templates with better error messages
- * @param {string} template - Template string to resolve
+ * Resolves string templates with support for multiple variables and better error messages
+ * @param {string} template - Template string to resolve (can contain multiple ${...} expressions)
  * @param {Object} results - Available results
+ * @param {string} jobName - Current job name for error context
+ * @param {string} inputPath - Path in input structure for error context
+ * @returns {any} Resolved value - string if mixed content, original type if single variable
+ */
+const resolveStringTemplate = (template, results, jobName, inputPath) => {
+  // Find all variable references in the template
+  const variablePattern = /\${([^}]+)}/g;
+  const matches = [...template.matchAll(variablePattern)];
+
+  // If no variables found, return as-is
+  if (matches.length === 0) {
+    return template;
+  }
+
+  // Check if the entire string is a single variable reference
+  const singleVariableMatch = template.match(/^\${([^}]+)}$/);
+  if (singleVariableMatch && matches.length === 1) {
+    // Return the actual resolved value (preserving type)
+    return resolveVariablePath(singleVariableMatch[1], results, template, jobName, inputPath);
+  }
+
+  // Multiple variables or mixed content - resolve each and build result string
+  let resolvedString = template;
+  const resolvedValues = new Map();
+
+  // Resolve all unique variable paths first
+  for (const match of matches) {
+    const variablePath = match[1];
+    if (!resolvedValues.has(variablePath)) {
+      try {
+        const resolvedValue = resolveVariablePath(variablePath, results, `\${${variablePath}}`, jobName, inputPath);
+        resolvedValues.set(variablePath, resolvedValue);
+      } catch (error) {
+        // Re-throw with context about the full template
+        throw new DependencyError(
+          `Cannot resolve variable "\${${variablePath}}" in template "${template}": ${error.message}`,
+          variablePath,
+          { jobName, inputPath, template, originalError: error.message }
+        );
+      }
+    }
+  }
+
+  // Replace all variable references with their resolved values
+  for (const [variablePath, resolvedValue] of resolvedValues) {
+    const variableRef = `\${${variablePath}}`;
+    // Convert non-string values to strings for template interpolation
+    const stringValue = resolvedValue === null || resolvedValue === undefined
+      ? ''
+      : String(resolvedValue);
+    resolvedString = resolvedString.replaceAll(variableRef, stringValue);
+  }
+
+  return resolvedString;
+};
+
+/**
+ * Resolves a single variable path from the results object
+ * @param {string} variablePath - Dot-separated path to resolve (e.g., "job1.output.data")
+ * @param {Object} results - Available results
+ * @param {string} originalTemplate - Original template for error context
  * @param {string} jobName - Current job name for error context
  * @param {string} inputPath - Path in input structure for error context
  * @returns {any} Resolved value
  */
-const resolveStringTemplate = (template, results, jobName, inputPath) => {
-  const match = template.match(/^\${(.*)}$/);
-  if (!match) return template;
-
-  const pathSegments = match[1].split('.');
+const resolveVariablePath = (variablePath, results, originalTemplate, jobName, inputPath) => {
+  const pathSegments = variablePath.split('.');
   let value = results;
   let traversedPath = '';
 
@@ -561,17 +619,20 @@ const resolveStringTemplate = (template, results, jobName, inputPath) => {
 
     if (value === null || value === undefined) {
       throw new DependencyError(
-        `Cannot resolve template "${template}" - value is null/undefined at "${traversedPath}"`,
+        `Cannot resolve "${originalTemplate}" - value is null/undefined at "${traversedPath}"`,
         traversedPath,
-        { jobName, inputPath, template }
+        { jobName, inputPath, template: originalTemplate }
       );
     }
 
-    if (!Object.prototype.hasOwnProperty.call(value, segment)) {
+    if (typeof value !== 'object' || !Object.prototype.hasOwnProperty.call(value, segment)) {
+      const availableKeys = typeof value === 'object' && value !== null
+        ? Object.keys(value)
+        : [];
       throw new DependencyError(
-        `Cannot resolve template "${template}" - missing property "${segment}" at "${traversedPath}"`,
+        `Cannot resolve "${originalTemplate}" - missing property "${segment}" at "${traversedPath}"`,
         traversedPath,
-        { jobName, inputPath, template, availableKeys: Object.keys(value) }
+        { jobName, inputPath, template: originalTemplate, availableKeys }
       );
     }
 

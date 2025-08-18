@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
-module.exports = async function writeList(inputs, events) {
+const MD5 = require('../libs/MD5');
+
+
+/**
+ * 
+ * @param {list} inputs 
+ * @param {file} events 
+ * @returns 
+ */
+module.exports = async function writeTextList(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
             name: inputs.name,
@@ -12,9 +21,10 @@ module.exports = async function writeList(inputs, events) {
     inputs.list.forEach(segment => {
         const parts = path.parse(segment);
         text = text + `file '${parts.base}'\n`
-    })
-    fs.writeFileSync("./table/list.txt", text);
+    });
+    const txtFileName = `${inputs.table}/${MD5(text).txt}`;
+    fs.writeFileSync(txtFileName, text);
     return {
-        listFile: "./table/list.txt"
+        file: txtFileName
     }
 }

@@ -12,6 +12,31 @@ const run = (arguments) => {
   });
 }
 
+/**
+ * 
+ * @param {type, start, duration, file_a, file_b} inputs 
+ * @param {*} events 
+ * @returns { file }
+ */
+
+/* Fade Types
+fade fadeblack	fadewhite	distance
+wipeleft	wiperight	wipeup	wipedown
+slideleft	slideright	slideup	slidedown
+smoothleft	smoothright	smoothup	smoothdown
+circlecrop	rectcrop	circleclose	circleopen
+horzclose	horzopen	vertclose	vertopen
+diagbl	diagbr	diagtl	diagtr
+hlslice	hrslice	vuslice	vdslice
+dissolve	pixelize	radial	hblur
+wipetl	wipetr	wipebl	wipebr
+zoomin transition for xfade
+fadegrays	squeezev	squeezeh	zoomin
+hlwind	hrwind	vuwind	vdwind
+coverleft	coverright	coverup	coverdown
+revealleft	revealright	revealup	revealdown
+*/
+
 module.exports = async function fade(inputs, events) {
   const send = (topic, message) => {
     events.emit(topic, {
@@ -27,7 +52,7 @@ module.exports = async function fade(inputs, events) {
 
   const fileParts = path.parse(inputs.file_a);
 
-  const combinedHash = MD5(inputs.file_a+inputs.file_b);
+  const combinedHash = MD5(inputs.file_a + inputs.file_b);
   const newFilename = `${fileParts.dir}/fs-${combinedHash}${fileParts.ext}`;
 
   const crossFadeArgs = [

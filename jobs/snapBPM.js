@@ -22,10 +22,16 @@ function closestBeatDurationPowerOf4(bpm, durationSeconds, divide = 1) {
     return {
         closestDuration: snappedDuration,
         segments: closestBeats * divide,
-        segmentLength: beatLength / divide
+        segmentDuration: beatLength / divide
     };
 }
 
+/**
+ * 
+ * @param {BPM, duration, divide} inputs 
+ * @param {*} events 
+ * @returns { closestDuration, segments, segmentLength}
+ */
 module.exports = async function snapBPM(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {

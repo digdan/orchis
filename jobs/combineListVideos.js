@@ -12,7 +12,13 @@ const run = (arguments) => {
     });
 }
 
-module.exports = async function combineVideos(inputs, events) {
+/**
+ * 
+ * @param { listFile } inputs 
+ * @param {*} events 
+ * @returns { file }
+ */
+module.exports = async function combineListVideos(inputs, events) {
     const send = (topic, message) => {
         events.emit(topic, {
             name: inputs.name,
@@ -34,6 +40,6 @@ module.exports = async function combineVideos(inputs, events) {
 
     await run(arguments);
     return {
-        merged: filename
+        file: filename
     }
 }

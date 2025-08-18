@@ -14,8 +14,7 @@ With support for job definition, dependency handling, execution control, and orc
 
 ## ✨ Features
 
-- Clean project structure with separate directories:
-  - `recipes/` for workflow entrypoint
+- Clean project structure with separate directories:  
   - `flows/` for workflow definitions  
   - `jobs/` for individual job implementations  
   - `libs/` for shared utilities and helpers  
@@ -30,7 +29,6 @@ With support for job definition, dependency handling, execution control, and orc
 ## 🏗 Architecture
 
 ```
-├── recipes/        # Entrypoint for gather data and initiating top level workflows
 ├── flows/          # High-level orchestration definitions
 ├── jobs/           # Individual job handlers
 ├── libs/           # Shared libraries & helpers
@@ -43,7 +41,6 @@ With support for job definition, dependency handling, execution control, and orc
 
 ````
 
-- **recipes/**: Gather input, ordered sequences of flows with dependencies  
 - **flows/**: Define ordered sequences of jobs with dependencies  
 - **jobs/**: Encapsulate job logic—each job is self-contained  
 - **orchestrator.js**: Reads workflows, orchestrates job execution, handles retries/errors  
@@ -78,7 +75,7 @@ With support for job definition, dependency handling, execution control, and orc
 4. **Run the orchestrator & worker**
 
    ```bash
-   node index.js recipes/my-sample-workflow.yaml
+   node index.js flows/my-sample-workflow.yaml
    ```
 
 ---
@@ -121,7 +118,7 @@ jobs:
 3. **Execution**
 
 ```bash
-node index.js recipes/my-sample-flow.yaml
+node index.js flows/my-sample-flow.yaml
 ```
 
 **Output:**
@@ -132,7 +129,7 @@ fetchData → analyzeData → reportResults
 
 4. **Inputs & Outputs**
 
-Job can accept inputs, and can also return results as outputs. Flows can have custom outputs defined for when the flow is ran as a job.
+Job can accept inputs, and can also return results as outputs. Flows can have custom outputs defined for when the flow is ran as a nested job.
 
 ```
    name: MySampleFlow
@@ -165,6 +162,145 @@ Job can accept inputs, and can also return results as outputs. Flows can have cu
 
 ---
 
+## 🏗️ Jobs
+
+
+
+**combineListVideos**
+
+Create a single video out of a list of videos to be combined
+* inputs
+   * listFile - The text file containing a list of files to combine. Created by `writeTextList` job
+* outputs
+   * file - path to the output file of combined videos
+
+---
+**createSolidVideo**
+
+Create a video of a solid color
+* inputs
+   * color - color of the solid video
+   * width - width of the output video
+   * height - height of the output video
+   * duration - duration of the video in seconds
+   * rate - framerate of the output video
+   * table - table to use to create video, defined by `initVideoTable`      
+* outputs
+   * file - file of the outputed video
+
+---
+**download**
+
+download from a URL to the table
+* inputs
+   * url - url to download from
+* outputs
+   * file - local file of downloaded file
+   * path - an object of parts of the local file path
+   * mime - mime type of the download file
+   * size - size of the file in bytes
+
+---
+**eval**
+
+Evaluates javascript code and returns the result
+* inputs
+   * code - the code to be evaluated
+* outputs
+   * result - the result of the evaluated code
+
+---
+**fade**
+
+Crossfade from one video to another
+* inputs
+   * table - The video table to create the new video with, defined by `initiateVideoTable`
+   * type - The type of fade to perform. ( see https://trac.ffmpeg.org/wiki/Xfade#Gallery for examples )
+   * start - when to start fade in seconds.
+   * duration - duration of fade
+   * file_a - starting video of fade
+   * file_b - ending video of fade
+* outputs
+   * file - the local path to the file
+
+---
+**getVideoInfo**
+
+Gathers information about a video
+* inputs
+   * file - local file of video
+* outputs
+   * file - file that was analyzed
+   * duration - duration of the video in seconds
+   * duration_ms - duration of video in milliseconds
+   * width - width of video
+   * height - height of video
+   * rate - frame rate of video
+
+---
+**initVideoTable**
+
+creates and cleans a subdirectory for working on files
+* inputs
+   * path - The path for the table directory to be created
+* outputs
+   * table - The path the table was created at
+
+---
+**interleaveArrays**
+
+Convert a 2d array into a 1d interleaved array
+* inputs
+   * arrays - a 2d array
+* outputs
+   * interleaved - a 1d array
+
+---
+**snapBPM**
+
+Find the closest divisible duration at a certain BPM
+* intputs
+   * BPM - Beats per minute to snap to
+   * duration - Original duration in seconds
+   * divide - Optional parameter to divide results by 
+* outputs
+   * closestDuration - Closest duration in seconds that matches an even division into BPM
+   * segments - The number of segments (beats) in the output duration
+   * segmentDuration - The duration in seconds of each segment
+
+---
+**splitVideoSegments**
+
+Split a video file by a certain number and duration of segments
+   * input
+      * file - The local file to split
+      * segments - The number of segments to split into
+      * segmentDuration - The length of each segment in seconds
+   * output
+      * segmentFiles - An array of the local files that video was split into
+
+---      
+**stretchVideo**
+
+Copy a video with a new duration, speeding up or slowing down the duration of the video.
+* inputs
+   * file - The input video to stretch
+   * durationFrom - The duration of the input video
+   * durationTo - The desired duration of the output video
+* outputs
+   * file - The stretched output video
+   * points - The ratio of duration it was stretched by
+
+---
+**writeTextList**
+
+Create a text file of a list of files. Used with `combineListVideos`
+* inputs
+   * list - Array of files to include in the text file list      
+* outputs
+   * file - The text file of the list
+---
+
 ## ⚙ Configuration
 
 Orchis can be customized via `.env`, possibly including:
@@ -172,8 +308,7 @@ Orchis can be customized via `.env`, possibly including:
 | Variable      | Description                   | Default     |
 | ------------- | ----------------------------- | ----------- |
 | `REDIS_URL`   | Redis connection string       | `redis://…` |
-| `MAX_RETRIES` | Retry count per job           | `3`         |
-| `LOG_LEVEL`   | Verbosity (e.g., info, debug) | `info`      |
+| `FFMPEG_PATH` | Used for FFMPEG jobs          | `/usr/bin`  |
 
 ---
 
