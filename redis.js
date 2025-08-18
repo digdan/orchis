@@ -3,7 +3,6 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 if (!process.env['REDIS_URL']) {
-    console.log(process.env);
     process.exit();
 }
 

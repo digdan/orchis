@@ -1,4 +1,4 @@
-name: Fade in w/ color
+name: Fade out w/ color
 description: Simple fade
 
 inputs:
@@ -39,14 +39,21 @@ jobs:
       height: ${video_info.height}
       duration: ${inputs.duration}
       rate: ${video_info.rate}
+  findEnding:
+    job: "math"
+    dependsOn: [video_info]
+    inputs:
+      value_a: ${video_info.duration}
+      value_b: ${inputs.duration}
+      operator: subtract
   fade:
     job: "fade"
     dependsOn: [solidVideo]
     inputs:
-      file_a: ${download.file}
-      file_b: ${solidVideo.file}
+      file_a: ${solidVideo.file}
+      file_b: ${download.file}
       type: ${inputs.type}
-      start: 0
+      start: ${findEnding.result}
       duration: ${inputs.duration}
 
 outputs:

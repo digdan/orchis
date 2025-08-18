@@ -87,6 +87,7 @@ module.exports = async function download(inputs, events) {
 
   return {
     filePath: localFile,
+    file: localFile,
     path: path.parse(localFile),
     mime: contentType,
     size: contentLength
