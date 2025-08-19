@@ -61,7 +61,7 @@ jobs:
       url: ${iterate.item}
       color: white
       type: fade
-      duration: 0.2
+      duration: 0.5
   write:
     job: "writeTextList"
     dependsOn: [flash]

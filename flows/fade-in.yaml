@@ -4,7 +4,7 @@ description: Simple fade
 inputs:
   url:
     label: Video URL
-    default: https://interwebdev.b-cdn.net/708edcfc-05aa-44a0-b98b-39601f451553_result8a23031ad1942baf_chf3.mp4
+    default: ./table/d-0d75169687528b6ccc77233a37604d87-p84656-s1.mp4
   color:    
     label: Color to fade
     default: black

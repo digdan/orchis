@@ -49,11 +49,11 @@ module.exports = async function splitVideoSegments(inputs, events) {
         }
     }
 
-    for (const [i, newFilename] of targetFiles) {
+    for (const [i, newFilename] of targetFiles.entries()) {
         const arguments = [
             '-y',
             '-i', inputs.file,
-            '-ss', ((i - 1) * inputs.segmentDuration),
+            '-ss', ((i) * inputs.segmentDuration),
             '-t', inputs.segmentDuration,
             '-c:v', 'libx264',
             '-crf', '18',

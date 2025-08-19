@@ -186,24 +186,24 @@ const createJobPromises = (flow, jobResults, queues, queueEvents, maxNestingLeve
   const jobPromises = {};
   // Create promises for all jobs
   Object.keys(flow.jobs).forEach(jobName => {
-      if (flow.jobs[jobName].job === 'runWorkflow') {
-        jobPromises[jobName] = executeNestedWorkflow(
-          jobName,
-          flow,
-          jobResults,
-          jobPromises,
-          maxNestingLevel
-        );
-      } else {
-        jobPromises[jobName] = executeJobWhenReady(
-          jobName,
-          flow,
-          jobResults,
-          queues,
-          queueEvents,
-          jobPromises
-        );
-      }
+    if (flow.jobs[jobName].job === 'runWorkflow') {
+      jobPromises[jobName] = executeNestedWorkflow(
+        jobName,
+        flow,
+        jobResults,
+        jobPromises,
+        maxNestingLevel
+      );
+    } else {
+      jobPromises[jobName] = executeJobWhenReady(
+        jobName,
+        flow,
+        jobResults,
+        queues,
+        queueEvents,
+        jobPromises
+      );
+    }
   });
 
   return jobPromises;
@@ -248,7 +248,6 @@ const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, 
     // Check for iteration
     if (jobDef.iterate) {
       const iterationArray = resolveInputs(jobDef.iterate, jobResults, jobName);
-      
       if (!Array.isArray(iterationArray)) {
         throw new NestedWorkflowError(
           `Iterate value must resolve to an array for job "${jobName}"`,
@@ -265,13 +264,13 @@ const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, 
       });
 
       const iterationResults = [];
-      
+
       for (let i = 0; i < iterationArray.length; i++) {
         const iterationValue = iterationArray[i];
-        
+
         // Update iterate context
         jobResults.iterate = { item: iterationValue, index: i };
-        
+
         flow.events.emit('iterationStep', {
           name: jobName,
           type: 'nestedWorkflow',
@@ -292,7 +291,12 @@ const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, 
 
         // Execute nested workflow with reduced nesting level
         const result = await runWorkflow(nestedFlow, resolvedInputs, maxNestingLevel - 1);
-        iterationResults.push(result);
+
+        if (jobDef.iteratePick) {
+          iterationResults.push(result[jobDef.iteratePick])
+        } else {
+          iterationResults.push(result);
+        }
       }
 
       // Store array of results
@@ -358,6 +362,7 @@ const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, 
       name: jobName,
       type: 'nestedWorkflow',
       error: error.message,
+      context: error.context,
       duration: jobEndTime - jobStartTime,
       timestamp: jobEndTime
     });
@@ -480,7 +485,7 @@ const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvent
     // Check for iteration
     if (jobDef.iterate) {
       const iterationArray = resolveInputs(jobDef.iterate, jobResults, jobName);
-      
+
       if (!Array.isArray(iterationArray)) {
         throw new JobExecutionError(
           `Iterate value must resolve to an array for job "${jobName}"`,
@@ -496,13 +501,13 @@ const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvent
       });
 
       const iterationResults = [];
-      
+
       for (let i = 0; i < iterationArray.length; i++) {
         const iterationValue = iterationArray[i];
-        
+
         // Update iterate context
         jobResults.iterate = { item: iterationValue, index: i };
-        
+
         flow.events.emit('iterationStep', {
           name: jobName,
           index: i,
@@ -532,8 +537,12 @@ const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvent
           queueEvents[jobName],
           jobDef.timeout || 300000 // 5 minute default timeout
         );
-        
-        iterationResults.push(result);
+
+        if (jobDef.iteratePick) {
+          iterationResults.push(result[jobDef.iteratePick])
+        } else {
+          iterationResults.push(result);
+        }
       }
 
       // Store array of results
