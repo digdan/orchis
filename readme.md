@@ -159,6 +159,40 @@ Job can accept inputs, and can also return results as outputs. Flows can have cu
       file: ${downloadedFile.file}
 ```   
 
+5. Iteration
+
+Jobs can be executed in interations over an array
+
+```
+   name: MySampleFlow
+   inputs:
+      url:
+         label: URL for file to download
+         required: true
+   jobs:
+      downloadFile:
+         job: fetchData
+         dependsOn: []
+         inputs:
+            url: ${inputs.url}
+      processData:
+         job: analyzeData
+         dependsOn: [downloadFile]
+         inputs:
+            file: ${downloadFile.file}
+      sendEmail:
+         job: reportResults
+         dependsOn: [processData]
+         iterate: ${processData.reports}
+         input: 
+            email: coworker@myjob.com
+            reportNumber: ${iterate.index}
+            results: ${iterate.item}
+
+   ouputs:
+      completed: true
+      file: ${downloadedFile.file}
+```
 
 ---
 
@@ -171,6 +205,7 @@ Job can accept inputs, and can also return results as outputs. Flows can have cu
 Create a single video out of a list of videos to be combined
 * inputs
    * listFile - The text file containing a list of files to combine. Created by `writeTextList` job
+   * table - the video manipulation directory, defined by `initVideoTable`
 * outputs
    * file - path to the output file of combined videos
 
@@ -264,7 +299,7 @@ Convert a 2d array into a 1d interleaved array
 * outputs
    * interleaved - a 1d array
 
---
+---
 **overlayVideos**
 
 Overlay one video over another

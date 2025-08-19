@@ -123,7 +123,6 @@ const runWorkflow = async (flow, inputs = {}, maxNestingLevel = 5) => {
     });
 
     if (flow?.outputs) {
-      const returnable = resolveInputs(flow.outputs, jobResults);
       return resolveInputs(flow.outputs, jobResults);
     } else {
       console.log('NO OUTPUTS', flow.name, flow, flow?.outputs);
@@ -185,27 +184,26 @@ const initializeQueues = async (flow) => {
  */
 const createJobPromises = (flow, jobResults, queues, queueEvents, maxNestingLevel) => {
   const jobPromises = {};
-
   // Create promises for all jobs
   Object.keys(flow.jobs).forEach(jobName => {
-    if (flow.jobs[jobName].job === 'runWorkflow') {
-      jobPromises[jobName] = executeNestedWorkflow(
-        jobName,
-        flow,
-        jobResults,
-        jobPromises,
-        maxNestingLevel
-      );
-    } else {
-      jobPromises[jobName] = executeJobWhenReady(
-        jobName,
-        flow,
-        jobResults,
-        queues,
-        queueEvents,
-        jobPromises
-      );
-    }
+      if (flow.jobs[jobName].job === 'runWorkflow') {
+        jobPromises[jobName] = executeNestedWorkflow(
+          jobName,
+          flow,
+          jobResults,
+          jobPromises,
+          maxNestingLevel
+        );
+      } else {
+        jobPromises[jobName] = executeJobWhenReady(
+          jobName,
+          flow,
+          jobResults,
+          queues,
+          queueEvents,
+          jobPromises
+        );
+      }
   });
 
   return jobPromises;
@@ -247,39 +245,112 @@ const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, 
       await waitForDependencies(dependencies, allJobPromises, jobName);
     }
 
-    // Resolve inputs for the nested workflow
-    const resolvedInputs = resolveInputs(jobDef.inputs, jobResults, jobName);
+    // Check for iteration
+    if (jobDef.iterate) {
+      const iterationArray = resolveInputs(jobDef.iterate, jobResults, jobName);
+      
+      if (!Array.isArray(iterationArray)) {
+        throw new NestedWorkflowError(
+          `Iterate value must resolve to an array for job "${jobName}"`,
+          jobName,
+          { iterateValue: iterationArray }
+        );
+      }
 
-    flow.events.emit('nestedWorkflowStarting', {
-      name: jobName,
-      workflowPath: jobDef.workflowPath,
-      inputs: resolvedInputs,
-      timestamp: Date.now()
-    });
+      flow.events.emit('iterationStarted', {
+        name: jobName,
+        type: 'nestedWorkflow',
+        iterationCount: iterationArray.length,
+        timestamp: Date.now()
+      });
 
-    // Load and execute the nested workflow
-    const nestedFlow = await loadWorkflow(jobDef.workflowPath);
+      const iterationResults = [];
+      
+      for (let i = 0; i < iterationArray.length; i++) {
+        const iterationValue = iterationArray[i];
+        
+        // Update iterate context
+        jobResults.iterate = { item: iterationValue, index: i };
+        
+        flow.events.emit('iterationStep', {
+          name: jobName,
+          type: 'nestedWorkflow',
+          index: i,
+          value: iterationValue,
+          timestamp: Date.now()
+        });
 
-    // Forward parent events to nested workflow with prefixing
-    const eventForwarder = createEventForwarder(flow.events, jobName);
-    forwardNestedEvents(nestedFlow.events, eventForwarder);
+        // Resolve inputs for this iteration
+        const resolvedInputs = resolveInputs(jobDef.inputs, jobResults, jobName);
 
-    // Execute nested workflow with reduced nesting level
-    const result = await runWorkflow(nestedFlow, resolvedInputs, maxNestingLevel - 1);
+        // Load and execute the nested workflow
+        const nestedFlow = await loadWorkflow(jobDef.workflowPath);
 
-    // Store result atomically
-    jobResults[jobName] = result;
+        // Forward parent events to nested workflow with prefixing
+        const eventForwarder = createEventForwarder(flow.events, jobName, i);
+        forwardNestedEvents(nestedFlow.events, eventForwarder);
 
-    const jobEndTime = Date.now();
-    flow.events.emit('jobCompleted', {
-      name: jobName,
-      type: 'nestedWorkflow',
-      results: result,
-      duration: jobEndTime - jobStartTime,
-      timestamp: jobEndTime
-    });
+        // Execute nested workflow with reduced nesting level
+        const result = await runWorkflow(nestedFlow, resolvedInputs, maxNestingLevel - 1);
+        iterationResults.push(result);
+      }
 
-    return result;
+      // Store array of results
+      jobResults[jobName] = iterationResults;
+
+      flow.events.emit('iterationCompleted', {
+        name: jobName,
+        type: 'nestedWorkflow',
+        results: iterationResults,
+        timestamp: Date.now()
+      });
+
+      const jobEndTime = Date.now();
+      flow.events.emit('jobCompleted', {
+        name: jobName,
+        type: 'nestedWorkflow',
+        results: iterationResults,
+        duration: jobEndTime - jobStartTime,
+        timestamp: jobEndTime
+      });
+
+      return iterationResults;
+
+    } else {
+      // Single execution (existing logic)
+      const resolvedInputs = resolveInputs(jobDef.inputs, jobResults, jobName);
+
+      flow.events.emit('nestedWorkflowStarting', {
+        name: jobName,
+        workflowPath: jobDef.workflowPath,
+        inputs: resolvedInputs,
+        timestamp: Date.now()
+      });
+
+      // Load and execute the nested workflow
+      const nestedFlow = await loadWorkflow(jobDef.workflowPath);
+
+      // Forward parent events to nested workflow with prefixing
+      const eventForwarder = createEventForwarder(flow.events, jobName);
+      forwardNestedEvents(nestedFlow.events, eventForwarder);
+
+      // Execute nested workflow with reduced nesting level
+      const result = await runWorkflow(nestedFlow, resolvedInputs, maxNestingLevel - 1);
+
+      // Store result atomically
+      jobResults[jobName] = result;
+
+      const jobEndTime = Date.now();
+      flow.events.emit('jobCompleted', {
+        name: jobName,
+        type: 'nestedWorkflow',
+        results: result,
+        duration: jobEndTime - jobStartTime,
+        timestamp: jobEndTime
+      });
+
+      return result;
+    }
 
   } catch (error) {
     const jobEndTime = Date.now();
@@ -305,45 +376,46 @@ const executeNestedWorkflow = async (jobName, flow, jobResults, allJobPromises, 
  * Creates an event forwarder for nested workflow events
  * @param {EventEmitter} parentEvents - Parent workflow event emitter
  * @param {string} jobName - Name of the nested workflow job
+ * @param {number} iterationIndex - Optional iteration index for iterated jobs
  * @returns {Object} Event forwarding functions
  */
-const createEventForwarder = (parentEvents, jobName) => {
+const createEventForwarder = (parentEvents, jobName, iterationIndex = null) => {
+  const baseData = {
+    nestedJobName: jobName,
+    iterationIndex,
+    timestamp: Date.now()
+  };
+
   return {
     start: (data) => parentEvents.emit('nestedWorkflowEvent', {
       type: 'start',
-      nestedJobName: jobName,
-      data,
-      timestamp: Date.now()
+      ...baseData,
+      data
     }),
     end: (data) => parentEvents.emit('nestedWorkflowEvent', {
       type: 'end',
-      nestedJobName: jobName,
-      data,
-      timestamp: Date.now()
+      ...baseData,
+      data
     }),
     jobStarted: (data) => parentEvents.emit('nestedWorkflowEvent', {
       type: 'jobStarted',
-      nestedJobName: jobName,
-      data,
-      timestamp: Date.now()
+      ...baseData,
+      data
     }),
     jobCompleted: (data) => parentEvents.emit('nestedWorkflowEvent', {
       type: 'jobCompleted',
-      nestedJobName: jobName,
-      data,
-      timestamp: Date.now()
+      ...baseData,
+      data
     }),
     jobFailed: (data) => parentEvents.emit('nestedWorkflowEvent', {
       type: 'jobFailed',
-      nestedJobName: jobName,
-      data,
-      timestamp: Date.now()
+      ...baseData,
+      data
     }),
     error: (data) => parentEvents.emit('nestedWorkflowEvent', {
       type: 'error',
-      nestedJobName: jobName,
-      data,
-      timestamp: Date.now()
+      ...baseData,
+      data
     })
   };
 };
@@ -405,40 +477,120 @@ const executeJobWhenReady = async (jobName, flow, jobResults, queues, queueEvent
       await waitForDependencies(dependencies, allJobPromises, jobName);
     }
 
-    // Resolve inputs with error context
-    const resolvedInputs = {
-      ...resolveInputs(jobDef.inputs, jobResults, jobName),
-      name: jobName,
-      job: jobDef.job
-    };
+    // Check for iteration
+    if (jobDef.iterate) {
+      const iterationArray = resolveInputs(jobDef.iterate, jobResults, jobName);
+      
+      if (!Array.isArray(iterationArray)) {
+        throw new JobExecutionError(
+          `Iterate value must resolve to an array for job "${jobName}"`,
+          jobName,
+          { iterateValue: iterationArray }
+        );
+      }
 
-    flow.events.emit('jobQueued', {
-      name: jobName,
-      inputs: resolvedInputs,
-      timestamp: Date.now()
-    });
+      flow.events.emit('iterationStarted', {
+        name: jobName,
+        iterationCount: iterationArray.length,
+        timestamp: Date.now()
+      });
 
-    // Execute job with timeout
-    const result = await executeJobWithTimeout(
-      jobName,
-      resolvedInputs,
-      queues[jobName],
-      queueEvents[jobName],
-      jobDef.timeout || 300000 // 5 minute default timeout
-    );
+      const iterationResults = [];
+      
+      for (let i = 0; i < iterationArray.length; i++) {
+        const iterationValue = iterationArray[i];
+        
+        // Update iterate context
+        jobResults.iterate = { item: iterationValue, index: i };
+        
+        flow.events.emit('iterationStep', {
+          name: jobName,
+          index: i,
+          value: iterationValue,
+          timestamp: Date.now()
+        });
 
-    // Store result atomically
-    jobResults[jobName] = result;
+        // Resolve inputs for this iteration
+        const resolvedInputs = {
+          ...resolveInputs(jobDef.inputs, jobResults, jobName),
+          name: jobName,
+          job: jobDef.job
+        };
 
-    const jobEndTime = Date.now();
-    flow.events.emit('jobCompleted', {
-      name: jobName,
-      results: result,
-      duration: jobEndTime - jobStartTime,
-      timestamp: jobEndTime
-    });
+        flow.events.emit('jobQueued', {
+          name: jobName,
+          iteration: i,
+          inputs: resolvedInputs,
+          timestamp: Date.now()
+        });
 
-    return result;
+        // Execute job with timeout
+        const result = await executeJobWithTimeout(
+          jobName,
+          resolvedInputs,
+          queues[jobName],
+          queueEvents[jobName],
+          jobDef.timeout || 300000 // 5 minute default timeout
+        );
+        
+        iterationResults.push(result);
+      }
+
+      // Store array of results
+      jobResults[jobName] = iterationResults;
+
+      flow.events.emit('iterationCompleted', {
+        name: jobName,
+        results: iterationResults,
+        timestamp: Date.now()
+      });
+
+      const jobEndTime = Date.now();
+      flow.events.emit('jobCompleted', {
+        name: jobName,
+        results: iterationResults,
+        duration: jobEndTime - jobStartTime,
+        timestamp: jobEndTime
+      });
+
+      return iterationResults;
+
+    } else {
+      // Single execution (existing logic)
+      const resolvedInputs = {
+        ...resolveInputs(jobDef.inputs, jobResults, jobName),
+        name: jobName,
+        job: jobDef.job
+      };
+
+      flow.events.emit('jobQueued', {
+        name: jobName,
+        inputs: resolvedInputs,
+        timestamp: Date.now()
+      });
+
+      // Execute job with timeout
+      const result = await executeJobWithTimeout(
+        jobName,
+        resolvedInputs,
+        queues[jobName],
+        queueEvents[jobName],
+        jobDef.timeout || 300000 // 5 minute default timeout
+      );
+
+      // Store result atomically
+      jobResults[jobName] = result;
+
+      const jobEndTime = Date.now();
+      flow.events.emit('jobCompleted', {
+        name: jobName,
+        results: result,
+        duration: jobEndTime - jobStartTime,
+        timestamp: jobEndTime
+      });
+
+      return result;
+    }
 
   } catch (error) {
     const jobEndTime = Date.now();
@@ -505,7 +657,6 @@ const executeJobWithTimeout = async (jobName, inputs, queue, queueEvents, timeou
  */
 const resolveInputs = (inputDef, results, jobName) => {
   if (!inputDef) return {};
-
   const resolveValue = (val, path = '') => {
     try {
       if (typeof val === 'string') {
@@ -638,7 +789,6 @@ const resolveVariablePath = (variablePath, results, originalTemplate, jobName, i
 
     value = value[segment];
   }
-
   return value;
 };
 

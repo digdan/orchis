@@ -31,6 +31,7 @@ module.exports = async function combineListVideos(inputs, events) {
     const filename = `${inputs.table}/c-${MD5(fileContents)}.mp4`
 
     let arguments = [
+        '-y',
         '-f', 'concat',
         '-safe', '0',
         '-i', inputs.listFile,

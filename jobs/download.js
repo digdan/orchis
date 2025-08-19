@@ -59,9 +59,67 @@ module.exports = async function download(inputs, events) {
     });
   }
 
+  /**
+   * Determines if a string is a URL or a local file path.
+   * @param {string} input - The string to test.
+   * @returns {'url' | 'file' | 'invalid'} - The result type.
+   */
+  const detectInputType = (input) => {
+    // Try to parse as a URL
+    try {
+      const parsed = new URL(input);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return 'url';
+      }
+    } catch (err) {
+      // Not a valid URL
+    }
+
+    // Normalize and check if the file exists locally
+    const resolvedPath = path.resolve(input);
+    if (fs.existsSync(resolvedPath)) {
+      return 'file';
+    }
+
+    return 'invalid';
+  }
+
+
+  /**
+   * Gets the size and Content-Type of a local file.
+   * @param {string} filePath - The path to the file.
+   * @returns {{ size: number, contentType: string } | null} - Object with file size and Content-Type, or null if not a valid file.
+   */
+  function getFileContentType(filePath) {
+    try {
+      const stats = fs.statSync(filePath);
+      if (!stats.isFile()) return null;
+
+      const contentType = mime.contentType(path.extname(filePath)) || 'application/octet-stream';
+
+      return {
+        size: stats.size,
+        contentType
+      };
+    } catch (err) {
+      return null;
+    }
+  }
+
   const getHead = async (url) => {
     const ret = fetch(url, { method: 'HEAD' });
     return ret;
+  }
+
+  if (detectInputType(inputs.url) === "file") {
+    const extra = getFileContentType(inputs.url);
+    return {
+      filePath: inputs.url,
+      file: inputs.url,
+      path: path.parse(inputs.url),
+      mime: extra.contentType,
+      size: extra.size
+    }
   }
 
   const cont = await getHead(inputs.url);

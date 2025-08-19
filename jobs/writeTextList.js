@@ -17,12 +17,15 @@ module.exports = async function writeTextList(inputs, events) {
             ...message
         });
     }
+
+    console.log('INPUTS', inputs);
+
     let text = "";
     inputs.list.forEach(segment => {
         const parts = path.parse(segment);
         text = text + `file '${parts.base}'\n`
     });
-    const txtFileName = `${inputs.table}/${MD5(text).txt}`;
+    const txtFileName = `${inputs.table}/${MD5(text)}.txt`;
     fs.writeFileSync(txtFileName, text);
     return {
         file: txtFileName
