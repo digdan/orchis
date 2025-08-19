@@ -32,6 +32,7 @@ module.exports = async function splitVideoSegments(inputs, events) {
     for (let i = 1; i <= inputs.segments; i++) {
         const newFilename = `${fileParts.dir}/${fileParts.name}-s${i}${fileParts.ext}`;
         const arguments = [
+            '-y',
             '-i', inputs.file,
             '-ss', ((i - 1) * inputs.segmentDuration),
             '-t', inputs.segmentDuration,
