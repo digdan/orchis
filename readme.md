@@ -198,8 +198,20 @@ Jobs can be executed in interations over an array
 
 ## 🏗️ Jobs
 
+**chromaOverlay**
 
+Overlay a video on top of another vide. Make a specific color transparent on to top video.
 
+* inputs
+   * color - color to make transparent
+   * similarity - the degree of simliarity to the color
+   * bland - the value for blending the overlays
+   * file_a - the bottom video
+   * file_b - the top video
+* outputs
+   * file - the output video
+
+---
 **combineListVideos**
 
 Create a single video out of a list of videos to be combined
@@ -298,6 +310,16 @@ Convert a 2d array into a 1d interleaved array
    * arrays - a 2d array
 * outputs
    * interleaved - a 1d array
+
+---
+**loopVideo**
+
+Loop a video X amount of times into a new video
+* inputs
+   * file - the video to loop
+   * loops - the number of times to loop it
+* outputs
+   * file - the output file that is looped
 
 ---
 **overlayVideos**
