@@ -37,6 +37,11 @@ module.exports = async function createSolidVideo(inputs, events) {
 
   const blankColorName = MD5(`${color}x${width}x${height}x${duration}x${rate}`);
   const blankColorPath = `${table}/scv-${blankColorName}.mp4`;
+  if (fs.existsSync(blankColorPath)) {
+    return {
+      file: blankColorPath
+    }
+  }
   const blankColorArgs = [
     '-y',
     '-f', 'lavfi',

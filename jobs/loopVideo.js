@@ -28,6 +28,12 @@ module.exports = async function imageListVideo(inputs, events) {
     }
 
     const filename = `${inputs.table}/lo-${MD5(fileContents)}-${inputs.loops}.mp4`
+
+    if (fs.existsSync(filename)) {
+        return {
+            file: filename
+        }
+    }
     let arguments = [
         '-y',
         '-stream_loop', inputs.loops,

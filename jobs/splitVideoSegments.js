@@ -11,6 +11,16 @@ const run = (arguments) => {
     });
 }
 
+function allFilesExist(files) {
+    return files.every(file => {
+        try {
+            return fs.existsSync(path.resolve(file));
+        } catch {
+            return false;
+        }
+    });
+}
+
 /**
  * 
  * @param {file, segmentDuration} inputs 
@@ -27,10 +37,19 @@ module.exports = async function splitVideoSegments(inputs, events) {
     }
 
     const fileParts = path.parse(inputs.file);
-    let segmentFiles = [];
-
+    const segmentFiles = [];
+    const targetFiles = [];
     for (let i = 1; i <= inputs.segments; i++) {
-        const newFilename = `${fileParts.dir}/${fileParts.name}-s${i}${fileParts.ext}`;
+        targetFiles.push(`${fileParts.dir}/${fileParts.name}-s${i}${fileParts.ext}`);
+    }
+
+    if (allFilesExist(targetFiles)) {
+        return {
+            segmentFiles: targetFiles
+        }
+    }
+
+    for (const [i, newFilename] of targetFiles) {
         const arguments = [
             '-y',
             '-i', inputs.file,

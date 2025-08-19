@@ -36,6 +36,11 @@ module.exports = async function overlayVideos(inputs, events) {
     const fileParts = path.parse(inputs.file_a);
     const combinedHash = MD5(v4());
     const newFilename = `${fileParts.dir}/co-${combinedHash}${fileParts.ext}`;
+    if (fs.existsSync(newFilename)) {
+        return {
+            file: newFilename
+        }
+    }
     const overlayArgs = [
         '-y',
         '-i', inputs.file_b,

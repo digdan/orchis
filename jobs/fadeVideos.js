@@ -55,6 +55,12 @@ module.exports = async function fadeVideos(inputs, events) {
   const combinedHash = MD5(inputs.file_a + inputs.file_b);
   const newFilename = `${fileParts.dir}/fs-${combinedHash}${fileParts.ext}`;
 
+  if (fs.existsSync(newFilename)) {
+    return {
+      file: newFilename,
+    }
+  }
+
   const crossFadeArgs = [
     '-y',
     '-i', inputs.file_b,
