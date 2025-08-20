@@ -26,6 +26,7 @@ module.exports = async function getVideoInfo(inputs, events) {
     // Get duration of video
     const csvData = await getDuration(inputs.file);
     const dataParts = csvData.trim().split(",");
+    console.log("!!!!!!!!!!!!!!!!!!", dataParts);
     return {
         file: inputs.file,
         duration: dataParts[3],

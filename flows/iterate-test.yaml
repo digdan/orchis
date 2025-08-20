@@ -48,7 +48,7 @@ jobs:
     dependsOn: [segment_length, stretch]
     inputs:
       table: ${init.table}
-      file: ${stretch.file}
+      file: ${stretch.file}      
       segments: ${snap.segments}
       segmentDuration: ${segment_length.result}
   flash:
@@ -61,7 +61,7 @@ jobs:
       url: ${iterate.item}
       color: white
       type: fade
-      duration: 0.5
+      duration: ${segment_length.result}
   write:
     job: "writeTextList"
     dependsOn: [flash]

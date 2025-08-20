@@ -37,14 +37,14 @@ jobs:
       color: ${inputs.color}
       width: ${video_info.width}
       height: ${video_info.height}
-      duration: ${inputs.duration}
+      duration: ${video_info.duration}
       rate: ${video_info.rate}
   fade:
     job: "fadeVideos"
     dependsOn: [solidVideo]
     inputs:
-      file_a: ${download.file}
-      file_b: ${solidVideo.file}
+      file_a: ${solidVideo.file}
+      file_b: ${download.file}
       type: ${inputs.type}
       start: 0
       duration: ${inputs.duration}

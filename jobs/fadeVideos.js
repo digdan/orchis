@@ -63,8 +63,8 @@ module.exports = async function fadeVideos(inputs, events) {
 
   const crossFadeArgs = [
     '-y',
-    '-i', inputs.file_b,
     '-i', inputs.file_a,
+    '-i', inputs.file_b,
     '-filter_complex', `[0:v][1:v]xfade=transition=${type}:duration=${duration}:offset=${start}[outv]`,
     '-map', '[outv]',
     '-map', '1:a?',
