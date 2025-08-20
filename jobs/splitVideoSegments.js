@@ -53,9 +53,11 @@ module.exports = async function splitVideoSegments(inputs, events) {
         const arguments = [
             '-y',
             '-i', inputs.file,
-            '-ss', ((i) * inputs.segmentDuration),
-            '-t', inputs.segmentDuration,
-            '-c', 'copy',
+            '-ss', ((i) * inputs.segmentDuration).toString(),
+            '-t', inputs.segmentDuration.toString(),
+            '-c:v', 'libx264',
+            '-c:a', 'aac',
+            '-preset', 'fast',
             newFilename
         ];
         segmentFiles.push(newFilename);

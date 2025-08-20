@@ -60,7 +60,7 @@ jobs:
     inputs:
       url: ${iterate.item}
       color: white
-      type: fade
+      type: circleopen
       duration: ${segment_length.result}
   write:
     job: "writeTextList"

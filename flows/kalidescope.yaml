@@ -1,0 +1,22 @@
+name: Random Kalidescope
+description: Random Kalidescope
+
+inputs:
+  duration:
+    label: Duration of video in seconds
+    default: 10
+
+jobs:
+  init:
+    job: "initVideoTable"
+  kali:
+    job: "kalidescope"
+    dependsOn: [init]
+    inputs:
+      table: ${init.table}
+      height: 1024
+      width: 1024
+      duration: ${inputs.duration}
+
+outputs:
+  file: ${kali.file}
