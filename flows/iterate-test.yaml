@@ -1,81 +1,22 @@
-name: BPM Splice
-inputs:
-  url:
-    label: Url
-    default: https://interwebdev.b-cdn.net/708edcfc-05aa-44a0-b98b-39601f451553_result8a23031ad1942baf_chf3.mp4
-  bpm: 
-    label: BPM
-    default: 120
-  divide: 
-    label: Divide by
-    default: 1
-jobs:
-  init:
-    job: "initVideoTable"
-  download:
-    job: "download"
-    dependsOn: [init]
-    inputs:
-      url: ${inputs.url}
-      table: ${init.table}
-  video_info:
-    job: "getVideoInfo"
-    dependsOn: [download]
-    inputs:
-      file: ${download.filePath}  
-  snap:
-    job: "snapBPM"
-    dependsOn: [video_info]
-    inputs:
-      BPM: ${inputs.bpm}
-      duration: ${video_info.duration}
-      divide: ${inputs.divide}
-  stretch:
-    job: "stretchVideoDuration"
-    dependsOn: [snap]
-    inputs:
-      table: ${init.table}
-      file: ${download.filePath}
-      durationFrom: ${video_info.duration}
-      durationTo: ${snap.closestDuration}      
-  segment_length:
-    job: "eval"
-    dependsOn: [snap]
-    inputs:
-      code: ${snap.closestDuration} / ${snap.segments}      
-  split:
-    job: "splitVideoSegments"
-    dependsOn: [segment_length, stretch]
-    inputs:
-      table: ${init.table}
-      file: ${stretch.file}      
-      segments: ${snap.segments}
-      segmentDuration: ${segment_length.result}
-  flash:
-    job: "runWorkflow"
-    workflowPath: "./flows/fade-in.yaml"
-    dependsOn: [split]
-    iterate: ${split.segmentFiles}
-    iteratePick: fadedFile
-    inputs:
-      url: ${iterate.item}
-      color: white
-      type: circleopen
-      duration: ${segment_length.result}
-  write:
-    job: "writeTextList"
-    dependsOn: [flash]
-    inputs:
-      list: ${flash}
-      table: ${init.table}
-  combined:
-    job: "combineListVideos"
-    dependsOn: [write]
-    inputs:
-      listFile: ${write.file}
-      table: ${init.table}
-
-outputs:
-  theList: ${flash}
-  table: ${init.table}
-  name: ${download.path.name}
+   name: TestFlow
+   inputs:
+      message_a:
+        label: A message
+        required: true
+      message_b:
+        label: Yet another message
+        required: true
+   jobs:
+      makeArray:
+        job: eval
+        dependsOn: []
+        inputs:
+          message_a: ${inputs.message_a}
+          message_b: ${inputs.message_b}
+          code: "[inputs.message_a, inputs.message_b]"
+      debug:
+         job: debug
+         dependsOn: [makeArray]
+         iterate: ${makeArray.result}
+         inputs:
+          message: A message is ${iterate.item}

@@ -198,187 +198,30 @@ Jobs can be executed in interations over an array
 
 ## 🏗️ Jobs
 
-**chromaOverlay**
+**debug**
 
-Overlay a video on top of another vide. Make a specific color transparent on to top video.
+Will dump all inputs in JSON format to the screen
 
-* inputs
-   * color - color to make transparent
-   * similarity - the degree of simliarity to the color
-   * bland - the value for blending the overlays
-   * file_a - the bottom video
-   * file_b - the top video
-* outputs
-   * file - the output video
-
----
-**combineListVideos**
-
-Create a single video out of a list of videos to be combined
-* inputs
-   * listFile - The text file containing a list of files to combine. Created by `writeTextList` job
-   * table - the video manipulation directory, defined by `initVideoTable`
-* outputs
-   * file - path to the output file of combined videos
-
----
-**createSolidVideo**
-
-Create a video of a solid color
-* inputs
-   * color - color of the solid video
-   * width - width of the output video
-   * height - height of the output video
-   * duration - duration of the video in seconds
-   * rate - framerate of the output video
-   * table - table to use to create video, defined by `initVideoTable`      
-* outputs
-   * file - file of the outputed video
+* inputs - any input can be provided
+* outputs - none
 
 ---
 **download**
 
-download from a URL to the table
-* inputs
-   * url - url to download from
+Will download a file to a "table" directory
+
+* inputs 
+   * table - The directory to download the file to
 * outputs
-   * file - local file of downloaded file
-   * path - an object of parts of the local file path
-   * mime - mime type of the download file
-   * size - size of the file in bytes
+   * file - The name of the local file after it was downloaded
 
 ---
 **eval**
 
-Evaluates javascript code and returns the result
-* inputs
-   * code - the code to be evaluated
+This job can be used to run any javascript
+* inputs - All inputs will be valid
 * outputs
-   * result - the result of the evaluated code
-
----
-**fadeVideos**
-
-Crossfade from one video to another
-* inputs
-   * table - The video table to create the new video with, defined by `initiateVideoTable`
-   * type - The type of fade to perform. ( see https://trac.ffmpeg.org/wiki/Xfade#Gallery for examples )
-   * start - when to start fade in seconds.
-   * duration - duration of fade
-   * file_a - starting video of fade
-   * file_b - ending video of fade
-* outputs
-   * file - the local path to the file
-
----
-**getVideoInfo**
-
-Gathers information about a video
-* inputs
-   * file - local file of video
-* outputs
-   * file - file that was analyzed
-   * duration - duration of the video in seconds
-   * duration_ms - duration of video in milliseconds
-   * width - width of video
-   * height - height of video
-   * rate - frame rate of video
-
----
-**imageListVideo**
-
-Combine a list of images into a video
-* inputs
-   * listFile - file of paths to the images, defined by `writeTextList`
-* outputs
-   * file - The generated video
-
----
-**initVideoTable**
-
-creates and cleans a subdirectory for working on files
-* inputs
-   * path - The path for the table directory to be created
-* outputs
-   * table - The path the table was created at
-
----
-**interleaveArrays**
-
-Convert a 2d array into a 1d interleaved array
-* inputs
-   * arrays - a 2d array
-* outputs
-   * interleaved - a 1d array
-
----
-**loopVideo**
-
-Loop a video X amount of times into a new video
-* inputs
-   * file - the video to loop
-   * loops - the number of times to loop it
-* outputs
-   * file - the output file that is looped
-
----
-**overlayVideos**
-
-Overlay one video over another
-* inputs
-   * file_a - First video
-   * file_b - Second video
-   * top - the top offset in pixels
-   * left - the left offset in pixels
-   * alpha - the amount of transparency between 0 and 1
-* outputs
-   * file - The output video file
-
----
-**snapBPM**
-
-Find the closest divisible duration at a certain BPM
-* intputs
-   * BPM - Beats per minute to snap to
-   * duration - Original duration in seconds
-   * divide - Optional parameter to divide results by 
-* outputs
-   * closestDuration - Closest duration in seconds that matches an even division into BPM
-   * segments - The number of segments (beats) in the output duration
-   * segmentDuration - The duration in seconds of each segment
-
----
-**splitVideoSegments**
-
-Split a video file by a certain number and duration of segments
-   * input
-      * file - The local file to split
-      * segments - The number of segments to split into
-      * segmentDuration - The length of each segment in seconds
-   * output
-      * segmentFiles - An array of the local files that video was split into
-
----      
-**stretchVideoDuration**
-
-Copy a video with a new duration, speeding up or slowing down the duration of the video.
-* inputs
-   * file - The input video to stretch
-   * durationFrom - The duration of the input video
-   * durationTo - The desired duration of the output video
-* outputs
-   * file - The stretched output video
-   * points - The ratio of duration it was stretched by
-
----
-**writeTextList**
-
-Create a text file of a list of files. Used with `combineListVideos`
-* inputs
-   * list - Array of files to include in the text file list      
-* outputs
-   * file - The text file of the list
----
+   * result - The value of the evaluated expression
 
 ## ⚙ Configuration
 
@@ -387,7 +230,6 @@ Orchis can be customized via `.env`, possibly including:
 | Variable      | Description                   | Default     |
 | ------------- | ----------------------------- | ----------- |
 | `REDIS_URL`   | Redis connection string       | `redis://…` |
-| `FFMPEG_PATH` | Used for FFMPEG jobs          | `/usr/bin`  |
 
 ---
 

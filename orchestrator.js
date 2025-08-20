@@ -125,7 +125,6 @@ const runWorkflow = async (flow, inputs = {}, maxNestingLevel = 5) => {
     if (flow?.outputs) {
       return resolveInputs(flow.outputs, jobResults);
     } else {
-      console.log('NO OUTPUTS', flow.name, flow, flow?.outputs);
       return jobResults;
     }
   } catch (error) {

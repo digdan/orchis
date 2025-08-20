@@ -1,0 +1,13 @@
+   name: TestFlow
+   inputs:
+      message:
+         label: A message to debug
+         required: true
+   jobs:
+      debug:
+         job: debug
+         dependsOn: []
+         inputs:
+          message: ${inputs.message}
+   ouputs:      
+      message: ${inputs.message}
