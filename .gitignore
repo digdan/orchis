@@ -2,3 +2,12 @@ package-lock.json
 node_modules/**
 table/**
 .env
+
+jobs/**
+!jobs/debug.js
+!jobs/download.js
+!jobs/eval.js
+
+flows/**
+!flows/iterate-test.yaml
+!flows/test.yaml
